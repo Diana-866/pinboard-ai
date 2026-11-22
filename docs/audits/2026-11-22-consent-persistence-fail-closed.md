@@ -33,3 +33,12 @@ Before relying on live registration, verify that migration `db/migrations/166_us
 ## Status
 
 Code and regression test published to `main`; runtime verification remains **NOT VERIFIED**. This is a security/correctness fix, not evidence that registration, email delivery, or production readiness has passed end-to-end.
+
+
+## Adjacent release review — PR #96 (same work period)
+
+- PR #96 remains open at head `bc3271dcf49b9a093974f03705eeb8a04149abc8`, based on the pre-fix main `5486a264f61acf5ec0dc26a74266201279325fea`; it was not merged.
+- The PR branch's auth fallback still drops `terms_accepted_at`; a review comment was added to PR #96 (comment ID `7080191005`) requesting reconciliation with the main fix.
+- The PR's proposed `PIN_IMAGE_PUBLIC_BASE_URL` only rewrites returned image URLs. Upload and deletion still call Supabase Storage, so enabling a target S3/CDN base before implementing the actual target provider would create broken URLs and leave deletion on the old provider. The review comment requests keeping this cutover disabled until upload, list/reconcile, delete, retention and restore are provider-consistent.
+- Actions run `45030088767` for test commit `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd` failed before steps: job `137231548164`, `runner_id=0`, empty `steps`. This is not evidence that the test failed or passed; runtime remains NOT VERIFIED.
+- Vercel status was `success` for the source and test commits and for the then-current documentation HEAD `1093a34c4fd599bcc4584e99458527af2b555684`. This is a provider status, not proof of production deployment.
