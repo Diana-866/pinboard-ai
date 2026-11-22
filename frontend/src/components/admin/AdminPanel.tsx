@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   AlertTriangle,
   CalendarClock,
+  ClipboardList,
   CreditCard,
   LogOut,
   LockKeyhole,
@@ -22,6 +23,7 @@ import { AdminBillingExceptions } from './AdminBillingExceptions';
 import { AdminFinancialOperations } from './AdminFinancialOperations';
 import { AdminPinterestSchedules } from './AdminPinterestSchedules';
 import { AdminPaymentCreationRequests } from './AdminPaymentCreationRequests';
+import { AdminAccountDeletionInventory } from './AdminAccountDeletionInventory';
 
 interface AdminPanelProps {
   onBackToApp: () => void;
@@ -35,7 +37,8 @@ type AdminTab =
   | 'pinterest'
   | 'mail'
   | 'email_outbox'
-  | 'login_lockout';
+  | 'login_lockout'
+  | 'account_deletion_inventory';
 
 const TABS: Array<{ id: AdminTab; label: string; icon: LucideIcon }> = [
   { id: 'subscriptions', label: 'Подписки', icon: Receipt },
@@ -46,6 +49,7 @@ const TABS: Array<{ id: AdminTab; label: string; icon: LucideIcon }> = [
   { id: 'mail', label: 'Почта поддержки', icon: Mail },
   { id: 'email_outbox', label: 'Исходящие письма', icon: Send },
   { id: 'login_lockout', label: 'Замок входа', icon: LockKeyhole },
+  { id: 'account_deletion_inventory', label: 'Удаление аккаунтов', icon: ClipboardList },
 ];
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
@@ -141,6 +145,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
           {activeTab === 'mail' && <AdminMail />}
           {activeTab === 'email_outbox' && <AdminEmailOutbox />}
           {activeTab === 'login_lockout' && <AdminLoginLockout />}
+          {activeTab === 'account_deletion_inventory' && <AdminAccountDeletionInventory />}
         </div>
       </main>
     </div>
