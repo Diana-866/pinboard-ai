@@ -23,6 +23,8 @@ PostgreSQL 290–490 ₽ + статика 170–290 ₽ ≈ **1040–1360 ₽/м
 ## 2. Что уже готово в репозитории
 
 - `backend/Dockerfile` — образ для web-процесса и воркеров (одна сборка, три команды запуска).
+  База образа закреплена по версии (`node:22.20.0-bookworm-slim`): обновление Node — осознанный
+  коммит, а не сюрприз при пересборке.
 - `backend/.dockerignore` — в образ не попадают `.env`, `node_modules`, тесты.
 - `scripts/verify.sh` — проверка схемы и тестов на чистой базе (исправлен диапазон миграций).
 - `scripts/smoke-backend.sh` — проверка живого бэкенда после деплоя.
@@ -60,7 +62,8 @@ done
 | Переменная | Обязательна | Назначение |
 |---|---|---|
 | `NODE_ENV` | да | `production` |
-| `PORT` | нет | по умолчанию 3000 |
+| `PORT` | нет | по умолчанию 3000 (дефолт задан и в образе: платформа может его не передавать) |
+| `APP_ROLE` | нет | `web` (по умолчанию) или `worker` — отключает HTTP-проверку живости |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | да | доступ к базе (для новой базы — новые значения) |
 | `SUPABASE_ANON_KEY` | да (fallback) | публичный ключ |
 | `JWT_SECRET` | да, ≥32 байт | подпись сессий; после смены все сессии завершатся |
@@ -74,9 +77,24 @@ done
 | `MAIL_SMTP_HOST/PORT/USER/PASS/FROM` | да для писем | подтверждение почты, чеки |
 | `ENABLE_DEV_TOPUP` | нет | не включать на production |
 
-4. Запустить, дождаться `GET /ready` → `{"ok":true}`.
-5. Отдельные контейнеры-воркеры: та же сборка, команда `npm run worker` и `npm run worker:account-deletion`,
-   те же переменные плюс `PINPOSY_BACKEND_URL` у воркера расписания.
+4. Собрать образ и один раз посмотреть, что в него попало (без `.dockerignore` туда уедут `.env`,
+   `.git`, `node_modules` хоста и каталог `backups` с дампами базы):
+
+   ```bash
+   docker build -t pinposy-backend backend
+   docker run --rm pinposy-backend ls -la /app
+   ```
+
+   В списке не должно быть `.env`, `.git`, `test`, `backups`, `node_modules` с dev-зависимостями.
+5. Запустить, дождаться `GET /ready` → `{"ok":true}`.
+6. Отдельные контейнеры-воркеры: та же сборка, команда `node scheduleWorker.js` и
+   `node accountDeletionWorker.js` (не `npm run worker`: npm — лишняя прослойка, которая
+   не всегда доносит SIGTERM), переменная `APP_ROLE=worker` и те же переменные плюс
+   `PINPOSY_BACKEND_URL` у воркера расписания.
+
+   `APP_ROLE=worker` обязателен: у воркеров нет HTTP-сервера, и общий HEALTHCHECK иначе
+   держит контейнер вечно «unhealthy». Обработчики SIGTERM в коде есть — остановка
+   контейнера доводит текущую задачу, а не рвёт её по таймауту.
 
 ### Шаг 3. Frontend
 

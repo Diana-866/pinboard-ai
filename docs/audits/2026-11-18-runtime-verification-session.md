@@ -2722,6 +2722,8 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `f7099c0e` | 2026-11-22 | docs: section 165.7 on the infrastructure comparison; dedupe and row for 1f7ba307 | §165.7 |
 | `e0ee1850` | 2026-11-22 | docs: flaky test finding and chronology row for 85bd6080 | §165.8 |
 | `9dcd1c80` | 2026-11-22 | docs: launch readiness rubric (68%) with evidence, plus test-flakiness section | §165.8 |
+| `83062090` | 2026-11-22 | docs: GitHub publication, PR 96 and CI blocker evidence | §165.9 |
+| `27c064c9` | 2026-11-22 | fix(deploy): harden image, backup and restore verification after independent review | §165.10 |
 
 ### 56.5. Что это даёт владельцу
 
@@ -6392,3 +6394,43 @@ runbook'и). Merge в `main` не выполнялся — по правилам
 (`spark@pinposy.local`) не связан с аккаунтом GitHub. Влиять на это подменой авторства не стал: коммиты
 должны оставаться честно атрибутированными. Для preview-деплоя потребуется либо связать адрес в GitHub,
 либо собирать preview из аккаунта владельца.
+
+### 165.10. Усиление Dockerfile, бэкапа и проверки восстановления (ревью Claude)
+
+Независимое ревью `backend/Dockerfile`, `scripts/backup-postgres.sh` и архитектуры `scripts/restore-verify.sh`
+нашло три P0 в скрипте копий и обязательную правку в образе. Всё принято и проверено на стенде.
+
+**Dockerfile:** расширен `.dockerignore` (`.env*`, `.git`, `node_modules`, `test`, `backups`, `*.dump`,
+`*.sha256`, `.agent-merge`, `.agent-verify`); база образа закреплена по версии `node:22.20.0-bookworm-slim`;
+добавлены `ENV PORT=3000` и `ENV APP_ROLE=web`; HEALTHCHECK учитывает роль (у воркеров нет HTTP-сервера,
+раньше они были вечно unhealthy и рестартовали по кругу); воркеры запускаются `node <файл>.js`, а не через npm.
+Обработчики SIGTERM в коде уже есть, поэтому `tini` не понадобился; записи на диск у приложения нет
+(`multer.memoryStorage()`), так что `USER node` безопасен.
+
+**backup-postgres.sh** переписан: `set -Eeuo pipefail` вместо `set -uo pipefail` (раньше сбой `mv`/`sha256sum`
+печатал `PASS` и запускал ротацию с кодом 0); `umask 077` и каталог `700` (раньше дамп 644 читал любой
+пользователь хоста); убран `--no-privileges` (приложение ходит ролями `anon`/`authenticated` — без GRANT и RLS
+копия не рабочая); полная распаковка `pg_restore --file=/dev/null` вместо проверки оглавления; таймауты,
+`flock`, ротация «старше `KEEP_DAYS` **и** вне `KEEP_COUNT` последних»; строка PASS/FAIL в `backup.log`.
+
+**Манифест копии.** Рядом с дампом пишется `<дамп>.manifest.json`, снятый из того же снапшота
+(`REPEATABLE READ` + `pg_export_snapshot` → `pg_dump --snapshot=...`): строки и `max(id)` по шести ключевым
+таблицам, версия сервера, расширения, роли, последовательности (`last_value`, `max`), таблицы с RLS, число
+политик, права `authenticated`, счётчики объектов схемы (`scripts/lib/backup-manifest.sql`).
+
+**restore-verify.sh:** проверка sha256 первым шагом; предполётные требования (та же мажорная версия
+PostgreSQL, те же расширения, роли уже созданы, `PGHOST` не равен хосту production-базы); одноразовая база
+`verify_<pid>_<random>`; `pg_restore --no-owner --exit-on-error --single-transaction`; с восстановленной базы
+снимается тот же манифест и сравнивается точным равенством (строки, объекты, расширения, RLS, последовательности);
+отдельно `last_value >= max(колонка)`; дымовой запрос от имени `authenticated` без claims и с claims;
+результат с фактическим RTO — строкой JSON в `restore-verify.log`.
+
+**Доказательства на стенде** (36 таблиц, 115 индексов, 131 функция, 9 пользователей, 4 проекта):
+прямой прогон — PASS, восстановление 0.40 с; повреждённый байт → `FAIL sha256`; тот же дамп с
+`--no-privileges` → `FAIL RLS: права ролей` (`users: true` против `false`), то есть старый дефект теперь ловится;
+неполный дамп → `FAIL` на восстановлении с понятной ошибкой. Временная база удаляется, журналы заполнены.
+
+**Не проверено:** `docker build` и содержимое `/app` — в среде агента нет Docker (команда внесена в runbook
+как обязательный шаг перед деплоем); фильтрация по `sub` в дымовой пробе — на стенде `auth.uid()` объявлена
+как `select null::uuid`, поэтому локально доказуемо только совпадение чисел, а не выборка строк пользователя.
+Копия по-прежнему остаётся на том же хосте: вывоз в другое хранилище — отдельный обязательный шаг.
