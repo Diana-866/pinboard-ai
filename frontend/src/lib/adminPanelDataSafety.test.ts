@@ -25,6 +25,7 @@ test('admin panel exposes only backend-connected administration sections', () =>
     'AdminMail',
     'AdminEmailOutbox',
     'AdminLoginLockout',
+    'AdminAccountDeletionInventory',
   ]) {
     assert.match(adminPanel, new RegExp(component));
   }
@@ -93,4 +94,19 @@ test('a dead outbox email can be requeued from the panel, and only a server conf
   assert.match(panel, /увидит письмо дважды/);
   // The panel still must not reveal recipients or payloads.
   assert.doesNotMatch(panel, /recipient_email/);
+});
+
+
+test('account deletion inventory panel displays partial results explicitly and stays read-only', () => {
+  const panel = readFileSync(
+    resolve(process.cwd(), 'src/components/admin/AdminAccountDeletionInventory.tsx'),
+    'utf8'
+  );
+  assert.match(adminPanel, /account_deletion_inventory/);
+  assert.match(adminPanel, /<AdminAccountDeletionInventory \/>/);
+  assert.match(panel, /\/admin\/account-deletion\/inventory\?limit=50/);
+  assert.match(panel, /requiring_attention_truncated/);
+  assert.match(panel, /Очередь неполная/);
+  assert.match(panel, /not запускает и не повторяет удаление данных/);
+  assert.doesNotMatch(panel, /method:\s*['"]POST['"]/);
 });
