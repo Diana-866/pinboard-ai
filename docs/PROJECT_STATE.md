@@ -4140,3 +4140,16 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Safety:** no production DB, Storage cleanup, provider, Pinterest, DNS or deployment touched.
 - **Next:** focused storage/admin tests and full backend runtime through UA-081/UA-080; continue read-contract review.
 
+### 2026-11-22 — Financial reconciliation and credit history validate query arrays (AUD-412)
+
+- **Base:** AUD-411 inventory commit `c8f0835a5907863af4f9481c765c4c7a16b7d499`.
+- **Finding:** admin financial operations queue used `data || []` for primary generation/regeneration/reservation reads, task batches and matching-request reads. Credit purchase history also treated malformed data as empty. This could hide unresolved provider/refund tasks, credit reservations or customer purchases.
+- **Fix:** shared `readArrayQueryResult` now validates all affected arrays; truncation flags derive only from validated rows. Credit purchase history fails closed.
+- **Regressions:** financial reconciliation tests malformed envelopes at six query positions; customer credit history returns 502 before balance derivation. Inventory 1445 → 1447.
+- **Commits:** financial source `0958b429a9d559ee621dea48c6360afe7b2c4251`; financial tests `78698054d968483de3006d1cfbed315854eb33a0`; credit source `d08d535056b611b38133883f4131cafed7174866`; credit HTTP test `b31b1f4acc184cd889fcb1d86550f1e7dcc44148`; inventory `19c883abb7811fc0ba7307fc99b267a5e3a73e95`; audit `f042bf92967042031f8a5c98d47bfc8660b2e473`.
+- **Blobs:** financial source `a6359ee7e91bb695c5aa6fabc692bc4d93513b27`; credit source `24bca345435b20a17e8cb5f0796eca890d6f6d98`; finance tests `d44821f16951e63d653c6ab6d528d5151e42e1ff`; API tests `6f53d93ad39b9c8b4437fca20f26dd425a8063c6`; inventory `38601e89955dfd518eb9755ee8f716beac4c78d9`.
+- **Static verification:** re-fetched source/test/inventory; no empty-array fallbacks remain in affected modules; 1447 declarations (finance 7, API 116).
+- **Runtime:** NOT RUN; CI jobs still fail before steps. No test PASS claimed.
+- **Safety:** no production DB/provider/Storage/email/Pinterest/DNS/deployment touched.
+- **Next:** run UA-081/UA-080 local focused + full backend suite; continue financial read-path review.
+
