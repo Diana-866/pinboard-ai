@@ -2120,3 +2120,14 @@ Inventory verified from GitHub tree: 157 active migrations, 010–166, no gaps. 
 
 Post-publication static review caught and corrected a double-escaped regex in the new migration inventory regression test. The corrected test pattern is `/^\d{3}_.+\.sql$/`. Runtime remains NOT RUN; correction commit and final test blob will be verified after publication.
 
+
+
+### AUD-405 — Windows migration summary range correction (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `scripts/verify.ps1` | `d4f447d08c92fcbc6585103867d691d7a749e881` | Windows PASS/FAIL replay summary now reports 010–166 |
+| `backend/test/verify-script-migration-chain.test.js` | `03a9fba19b7b65096e9d142106f6cc349568de29` | Regression asserts current range and rejects stale 010–161 |
+| `docs/audits/2026-11-22-windows-migration-summary-range.md` | created in commit `567b852ede0141f003b6e1a4b70185b6bf9e0d71` | Root cause, exact changes and verification boundary |
+
+Commits: script `d1cdf597e5568951eabbd57f3552e9b984cf29db`; test `7a57d1aa16b9aea8971e1093675bc817b355b30a`; audit `567b852ede0141f003b6e1a4b70185b6bf9e0d71`; state `3a70e433a0d41698efd20092366c4b99cf2b1433`; owner action `97bffe6f772929a42434a7c9e1ac13444c9fc2a7`. Runtime Node/PostgreSQL NOT RUN; UA-078 records the local acceptance action.
