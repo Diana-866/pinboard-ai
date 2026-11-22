@@ -2365,3 +2365,22 @@ Commits: financial source `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; payment so
 - Final static assertions passed; inventory 1,454; relevant test declarations 10/14.
 - CI runs `45038055140` and `45038055126` failed with runner ID 0 and no steps; no tests executed. Vercel reports `build-rate-limit` on checked main HEAD; no deployment PASS.
 - UA-087 and PROJECT_STATE receipt commits: `ce4d0abaf9d8f950def6dfddbc0148263dfe70a1` and `a609bb3d35290737cea9764765506471a53269a8`. Runtime remains owner/local pending.
+
+
+### AUD-419 — null account-deletion inventory results fail closed (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `backend/adminAccountDeletionInventory.js` | `ab6347d8dd5477d1f8d9f91d68086e6e0b2ac451` | Requires arrays for oldest-pending and attention-job reads; removes null fallbacks |
+| `backend/test/admin-account-deletion-inventory.test.js` | `5b917d01bab1325ff840ca4551af9ac984d0b78d` | Regression for null successful result at both query stages |
+| `backend/test/test-inventory.json` | `014b2f9a29c076add50812aab242d0bc13b7b923` | 1,455 declarations; account-deletion inventory test count 10 |
+| `docs/audits/AUD-419-null-account-deletion-inventory.md` | `ab708589f9c174be3b1da2fe4d6d2c3b35039b6e` | Root cause, fix, static verification and runtime boundary |
+
+Commits: source `07acd29fdcf0a9b6de493ac57185f286bc325670`; regression `8f82af5141e4941a833ffd0e127149eec2c29faa`; inventory `7e0de2be65baceb12bed3a851075da7a1477951f`; audit `725a7648f6142b5ffaf215ca1982dd5519f315c9`; UA-088 `84b34915d1456a64ff3c7a7e1d311db7d708fde4`; state `d365ae04c474ce07926dfbd6e3828717d8d55e9e`.
+
+## Final synchronization — AUD-419 (2026-11-22)
+
+- Main HEAD before this register update: `d365ae04c474ce07926dfbd6e3828717d8d55e9e`.
+- Source/test/inventory re-fetched; strict array checks and regression present; 10 declarations match inventory; total 1,455.
+- Runtime tests NOT RUN; UA-088 pending. No production account deletion or external mutation.
+- Actions runner and Vercel quota blockers from AUD-418 remain until independently resolved.
