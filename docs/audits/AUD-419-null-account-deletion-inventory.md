@@ -38,3 +38,8 @@ This could hide pending deletion work or blocked/retrying/running jobs from an o
 ## Next
 
 Run the focused admin inventory and test-inventory tests, then the full backend suite from UA-088 on a local Node 22 checkout. Continue independent admin/read-path review after fresh HEAD and documentation checks.
+
+
+## Subsequent main update — AUD-420 (2026-11-22)
+
+After AUD-419, a follow-up commit added bounded attention-queue truncation reporting and strict row validation. The deletion inventory test file grew from 10 to 12 declarations, and the total inventory from 1,455 to 1,457 at AUD-420. The current main inventory is 1,458 after AUD-421 added one admin-access regression. See `docs/audits/AUD-420-account-deletion-inventory-truncation.md` for that independent change. The original AUD-419 commit-level counts above remain historical and are not the current main totals.
