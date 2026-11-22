@@ -34,6 +34,7 @@ const copy = {
     verifyErrorGeneric: "We couldn’t verify your email. Request a new verification email.",
     verifyErrorBody: "Request another email from the sign-in page, or try signing in — we’ll send a link automatically.",
     errorInvalidCredentials: "Wrong email or password.", errorEmailAlreadyRegistered: "An account with this email already exists. Sign in instead.", errorAccountPendingDeletion: "This account is being deleted, so sign-in is disabled.", errorLoginLocked: "Your account is temporarily locked after too many failed sign-in attempts. Try again in {minutes} minutes or reset your password.", errorLoginLockedCountdown: "Your account is temporarily locked after too many failed sign-in attempts. You can try again in {seconds} s, or reset your password now.",
+    errorRegistrationUnavailable: "Registration is temporarily unavailable. Please try again later.",
   },
   ru: {
     loginTitle: 'Вход', loginSubtitle: 'С возвращением! Войдите в свой аккаунт.', verified: 'Email подтверждён ✓ Теперь войдите в свой аккаунт.', loginError: 'Не удалось войти. Попробуйте ещё раз.', sessionLoadError: 'Данные приняты, но профиль не загрузился. Проверьте соединение и попробуйте войти ещё раз.', sessionLoading: 'Восстанавливаем сессию…', emailSentAgain: 'Письмо отправлено ещё раз. Проверьте почту и папку «Спам».', resendWait: 'Повторная отправка будет доступна через {minutes} мин.', resend: 'Отправить письмо снова', sending: 'Отправляем…', email: 'Email', password: 'Пароль', passwordPlaceholder: 'Ваш пароль', hide: 'Скрыть', show: 'Показать', signingIn: 'Входим…', signIn: 'Войти', forgot: 'Забыли пароль?', continueTerms: 'Продолжая, вы соглашаетесь с', terms: 'Условиями использования', and: 'и', privacy: 'Политикой конфиденциальности', noAccount: 'Нет аккаунта?', createOne: 'Создайте его',
@@ -68,6 +69,7 @@ const copy = {
     verifyErrorGeneric: "Не удалось подтвердить email. Запросите новое письмо подтверждения.",
     verifyErrorBody: "Запросите повторное письмо на странице входа или попробуйте войти — мы вышлем ссылку автоматически.",
     errorInvalidCredentials: "Неверный email или пароль.", errorEmailAlreadyRegistered: "Аккаунт с таким email уже существует. Войдите в него.", errorAccountPendingDeletion: "Аккаунт удаляется — вход недоступен.", errorLoginLocked: "Аккаунт временно заблокирован из-за неудачных попыток входа. Повторите через {minutes} мин. или восстановите пароль.", errorLoginLockedCountdown: "Аккаунт временно заблокирован из-за неудачных попыток входа. Повторить можно через {seconds} с, или восстановите пароль сейчас.",
+    errorRegistrationUnavailable: "Регистрация временно недоступна. Попробуйте позже.",
   },
   es: {
     loginTitle: 'Iniciar sesión', loginSubtitle: '¡Qué bueno verte de nuevo! Accede a tu cuenta.', verified: 'Email verificado ✓ Ya puedes iniciar sesión.', loginError: 'No se pudo iniciar sesión. Inténtalo de nuevo.', sessionLoadError: 'Tus credenciales se aceptaron, pero no se pudo cargar tu perfil. Comprueba la conexión e inténtalo de nuevo.', sessionLoading: 'Restaurando tu sesión…', emailSentAgain: 'Hemos enviado otro correo. Revisa tu bandeja de entrada y spam.', resendWait: 'Podrás solicitar otro correo en {minutes} min.', resend: 'Reenviar correo de verificación', sending: 'Enviando…', email: 'Correo electrónico', password: 'Contraseña', passwordPlaceholder: 'Tu contraseña', hide: 'Ocultar', show: 'Mostrar', signingIn: 'Iniciando sesión…', signIn: 'Iniciar sesión', forgot: '¿Olvidaste tu contraseña?', continueTerms: 'Al continuar, aceptas los', terms: 'Términos del servicio', and: 'y la', privacy: 'Política de privacidad', noAccount: '¿No tienes una cuenta?', createOne: 'Crear una',
@@ -102,6 +104,7 @@ const copy = {
     verifyErrorGeneric: "No se pudo verificar tu correo. Solicita otro correo de verificación.",
     verifyErrorBody: "Solicita otro correo desde la página de inicio de sesión o intenta entrar: te enviaremos un enlace automáticamente.",
     errorInvalidCredentials: "Correo o contraseña incorrectos.", errorEmailAlreadyRegistered: "Ya existe una cuenta con este correo. Inicia sesión.", errorAccountPendingDeletion: "Esta cuenta se está eliminando, por lo que no se puede iniciar sesión.", errorLoginLocked: "La cuenta está bloqueada temporalmente por demasiados intentos fallidos. Inténtalo de nuevo en {minutes} minutos o restablece tu contraseña.", errorLoginLockedCountdown: "La cuenta está bloqueada temporalmente por demasiados intentos fallidos. Podrás reintentarlo en {seconds} s o restablecer tu contraseña ahora.",
+    errorRegistrationUnavailable: "El registro no está disponible temporalmente. Inténtalo de nuevo más tarde.",
   },
   pt: {
     loginTitle: 'Entrar', loginSubtitle: 'Que bom ter você de volta! Entre na sua conta.', verified: 'Email confirmado ✓ Agora você já pode entrar.', loginError: 'Não foi possível entrar. Tente novamente.', sessionLoadError: 'Seus dados foram aceitos, mas não foi possível carregar seu perfil. Verifique a conexão e tente novamente.', sessionLoading: 'Restaurando sua sessão…', emailSentAgain: 'Enviamos outro email. Verifique sua caixa de entrada e spam.', resendWait: 'Você poderá solicitar outro email em {minutes} min.', resend: 'Reenviar email de confirmação', sending: 'Enviando…', email: 'Email', password: 'Senha', passwordPlaceholder: 'Sua senha', hide: 'Ocultar', show: 'Mostrar', signingIn: 'Entrando…', signIn: 'Entrar', forgot: 'Esqueceu a senha?', continueTerms: 'Ao continuar, você concorda com os', terms: 'Termos de Serviço', and: 'e a', privacy: 'Política de Privacidade', noAccount: 'Ainda não tem uma conta?', createOne: 'Criar conta',
@@ -136,6 +139,7 @@ const copy = {
     verifyErrorGeneric: "Não foi possível confirmar seu email. Solicite um novo email de confirmação.",
     verifyErrorBody: "Solicite outro email na página de login ou tente entrar — enviaremos um link automaticamente.",
     errorInvalidCredentials: "Email ou senha incorretos.", errorEmailAlreadyRegistered: "Já existe uma conta com este email. Entre nela.", errorAccountPendingDeletion: "Esta conta está a ser eliminada, por isso o acesso está desativado.", errorLoginLocked: "A conta está temporariamente bloqueada após demasiadas tentativas falhadas. Tente novamente em {minutes} minutos ou redefina a sua senha.", errorLoginLockedCountdown: "A conta está temporariamente bloqueada após demasiadas tentativas falhadas. Pode tentar novamente em {seconds} s ou redefinir a senha agora.",
+    errorRegistrationUnavailable: "O cadastro está temporariamente indisponível. Tente novamente mais tarde.",
   },
   de: {
     loginTitle: 'Anmelden', loginSubtitle: 'Willkommen zurück! Melden Sie sich bei Ihrem Konto an.', verified: 'E-Mail bestätigt ✓ Sie können sich jetzt anmelden.', loginError: 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.', sessionLoadError: 'Ihre Anmeldedaten wurden akzeptiert, aber Ihr Profil konnte nicht geladen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.', sessionLoading: 'Sitzung wird wiederhergestellt…', emailSentAgain: 'Eine neue E-Mail wurde gesendet. Prüfen Sie Ihren Posteingang und Spam-Ordner.', resendWait: 'Sie können in {minutes} Min. eine weitere E-Mail anfordern.', resend: 'Bestätigungs-E-Mail erneut senden', sending: 'Wird gesendet…', email: 'E-Mail', password: 'Passwort', passwordPlaceholder: 'Ihr Passwort', hide: 'Ausblenden', show: 'Anzeigen', signingIn: 'Anmeldung läuft…', signIn: 'Anmelden', forgot: 'Passwort vergessen?', continueTerms: 'Wenn Sie fortfahren, stimmen Sie den', terms: 'Nutzungsbedingungen', and: 'und der', privacy: 'Datenschutzerklärung', noAccount: 'Noch kein Konto?', createOne: 'Konto erstellen',
@@ -170,6 +174,7 @@ const copy = {
     verifyErrorGeneric: "E-Mail konnte nicht bestätigt werden. Fordern Sie eine neue Bestätigungs-E-Mail an.",
     verifyErrorBody: "Fordern Sie auf der Anmeldeseite eine neue E-Mail an oder versuchen Sie sich anzumelden — wir senden automatisch einen Link.",
     errorInvalidCredentials: "E-Mail oder Passwort ist falsch.", errorEmailAlreadyRegistered: "Es gibt bereits ein Konto mit dieser E-Mail. Melden Sie sich dort an.", errorAccountPendingDeletion: "Dieses Konto wird gelöscht, daher ist die Anmeldung deaktiviert.", errorLoginLocked: "Das Konto ist nach zu vielen fehlgeschlagenen Anmeldeversuchen vorübergehend gesperrt. Versuchen Sie es in {minutes} Minuten erneut oder setzen Sie Ihr Passwort zurück.", errorLoginLockedCountdown: "Das Konto ist nach zu vielen fehlgeschlagenen Anmeldeversuchen vorübergehend gesperrt. In {seconds} s können Sie es erneut versuchen oder jetzt Ihr Passwort zurücksetzen.",
+    errorRegistrationUnavailable: "Die Registrierung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
   },
   fr: {
     loginTitle: 'Connexion', loginSubtitle: 'Ravi de vous revoir ! Connectez-vous à votre compte.', verified: 'Adresse e-mail vérifiée ✓ Vous pouvez vous connecter.', loginError: 'Connexion impossible. Veuillez réessayer.', sessionLoadError: 'Vos identifiants ont été acceptés, mais votre profil n’a pas pu être chargé. Vérifiez la connexion et réessayez.', sessionLoading: 'Restauration de la session…', emailSentAgain: 'Un nouvel e-mail a été envoyé. Vérifiez votre boîte de réception et les indésirables.', resendWait: 'Vous pourrez demander un nouvel e-mail dans {minutes} min.', resend: 'Renvoyer l’e-mail de vérification', sending: 'Envoi…', email: 'E-mail', password: 'Mot de passe', passwordPlaceholder: 'Votre mot de passe', hide: 'Masquer', show: 'Afficher', signingIn: 'Connexion…', signIn: 'Se connecter', forgot: 'Mot de passe oublié ?', continueTerms: 'En continuant, vous acceptez les', terms: 'Conditions d’utilisation', and: 'et la', privacy: 'Politique de confidentialité', noAccount: 'Vous n’avez pas de compte ?', createOne: 'En créer un',
@@ -204,6 +209,7 @@ const copy = {
     verifyErrorGeneric: "Impossible de vérifier votre e-mail. Demandez un nouvel e-mail de vérification.",
     verifyErrorBody: "Demandez un nouvel e-mail depuis la page de connexion ou essayez de vous connecter : nous enverrons automatiquement un lien.",
     errorInvalidCredentials: "E-mail ou mot de passe incorrect.", errorEmailAlreadyRegistered: "Un compte existe déjà avec cet e-mail. Connectez-vous plutôt.", errorAccountPendingDeletion: "Ce compte est en cours de suppression, la connexion est donc désactivée.", errorLoginLocked: "Le compte est temporairement bloqué après trop de tentatives échouées. Réessayez dans {minutes} minutes ou réinitialisez votre mot de passe.", errorLoginLockedCountdown: "Le compte est temporairement bloqué après trop de tentatives échouées. Nouvel essai possible dans {seconds} s, ou réinitialisez votre mot de passe maintenant.",
+    errorRegistrationUnavailable: "L'inscription est temporairement indisponible. Réessayez plus tard.",
   },
   zh: {
     loginTitle: '登录', loginSubtitle: '欢迎回来！请登录您的账户。', verified: '邮箱已验证 ✓ 现在可以登录了。', loginError: '登录失败，请重试。', sessionLoadError: '登录信息已通过验证，但无法加载个人资料。请检查网络连接后重试。', sessionLoading: '正在恢复会话…', emailSentAgain: '验证邮件已重新发送，请检查收件箱和垃圾邮件文件夹。', resendWait: '请在 {minutes} 分钟后再次请求邮件。', resend: '重新发送验证邮件', sending: '发送中…', email: '邮箱', password: '密码', passwordPlaceholder: '请输入密码', hide: '隐藏', show: '显示', signingIn: '正在登录…', signIn: '登录', forgot: '忘记密码？', continueTerms: '继续即表示您同意', terms: '服务条款', and: '和', privacy: '隐私政策', noAccount: '还没有账户？', createOne: '立即注册',
@@ -238,6 +244,7 @@ const copy = {
     verifyErrorGeneric: "无法验证邮箱。请重新请求验证邮件。",
     verifyErrorBody: "请在登录页面重新发送邮件，或尝试登录 — 我们会自动发送验证链接。",
     errorInvalidCredentials: "邮箱或密码不正确。", errorEmailAlreadyRegistered: "该邮箱已注册账号，请直接登录。", errorAccountPendingDeletion: "该账号正在删除，无法登录。", errorLoginLocked: "由于多次登录失败，该账号已被临时锁定。请在 {minutes} 分钟后重试，或重置密码。", errorLoginLockedCountdown: "由于多次登录失败，该账号已被临时锁定。请在 {seconds} 秒后重试，或立即重置密码。",
+    errorRegistrationUnavailable: "注册暂时不可用。请稍后再试。",
   },
 } as const;
 
@@ -268,6 +275,10 @@ export function getAuthErrorMessage(code: unknown, language: SupportedLanguage):
       return messages.errorEmailAlreadyRegistered;
     case "account_pending_deletion":
       return messages.errorAccountPendingDeletion;
+    case "registration_unavailable":
+      // Схема без колонки согласия: аккаунт не создаётся молча, иначе отметка о согласии
+      // терялась бы. Клиент показывает это на своём языке, а не текст бэкенда.
+      return messages.errorRegistrationUnavailable;
     case "login_locked":
       // A temporary lockout is not a wrong password: telling the customer "wrong email or
       // password" would send them into a reset loop they do not need, and hiding the wait invites

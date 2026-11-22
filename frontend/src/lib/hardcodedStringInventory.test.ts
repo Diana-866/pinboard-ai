@@ -22,12 +22,16 @@ const SRC = path.join(process.cwd(), 'src');
  * `timezone.ts` and `apiErrorMessages.ts`.
  */
 const CEILING: Record<string, number> = {
+  // Экран удаления аккаунтов добавлен в админ-панель позже остальных и остаётся русским
+  // по назначению: он для оператора, а не для клиента.
+  'components/admin/AdminAccountDeletionInventory.tsx': 29,
   'components/admin/AdminBillingExceptions.tsx': 14,
   'components/admin/AdminEmailOutbox.tsx': 33,
   'components/admin/AdminFinancialOperations.tsx': 36,
   'components/admin/AdminLoginLockout.tsx': 24,
   'components/admin/AdminMail.tsx': 13,
-  'components/admin/AdminPanel.tsx': 16,
+  // +1: строка про новый экран удаления аккаунтов в навигации админки.
+  'components/admin/AdminPanel.tsx': 17,
   'components/admin/AdminPaymentCreationRequests.tsx': 31,
   'components/admin/AdminPinterestSchedules.tsx': 61,
   'components/admin/AdminSubscriptions.tsx': 25,
@@ -36,7 +40,7 @@ const CEILING: Record<string, number> = {
   'pages/Landing.tsx': 126,
   'pages/VerifyEmail.tsx': 1,
 };
-const CEILING_TOTAL = 428;
+const CEILING_TOTAL = 458;
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

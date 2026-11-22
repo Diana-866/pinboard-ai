@@ -98,7 +98,10 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage,
     // is missing, fail before creating an account; never silently discard the timestamp.
     if (/\bterms_accepted_at\b/i.test(result.error.message || "")) {
       logError("auth.event_003");
-      throw httpError(503, "Регистрация временно недоступна — попробуйте позже");
+      throw withCode(
+        httpError(503, "Регистрация временно недоступна — попробуйте позже"),
+        "registration_unavailable"
+      );
     }
 
     // Older deployments may lack non-legal profile columns. Retry once without those fields,
