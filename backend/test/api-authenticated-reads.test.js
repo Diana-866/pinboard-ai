@@ -3578,3 +3578,55 @@ test("a complete Pinterest board page is mapped for the board picker", async () 
     await pinterest.close();
   }
 });
+
+
+test("malformed pins reconciliation response fails closed without deleting review queue rows", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "pin_review_queue", {
+      status: 200,
+      body: [{ id: "q-stale", pin_id: PIN_ID, payload: { id: "q-stale", pinId: PIN_ID, title: "Saved pin" } }],
+    });
+    backend.db.table("GET", "pins", { status: 200, body: null });
+
+    const answer = await backend.get("/review-queue");
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "DELETE" && entry.path === "/rest/v1/pin_review_queue").length,
+      0,
+      "malformed pins response must not cause stale-row cleanup"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("malformed schedules reconciliation response fails closed without deleting review queue rows", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "pin_review_queue", {
+      status: 200,
+      body: [{ id: "q-own", pin_id: PIN_ID, payload: { id: "q-own", pinId: PIN_ID, title: "Saved pin" } }],
+    });
+    backend.db.table("GET", "pins", ({ query }) => {
+      if (String(query.select || "").includes("boards(")) {
+        return {
+          status: 200,
+          body: [{ id: PIN_ID, status: "pending", boards: { id: BOARD_ID, projects: { user_id: USER_ID } } }],
+        };
+      }
+      return { status: 200, body: [] };
+    });
+    backend.db.table("GET", "pin_schedules", { status: 200, body: null });
+
+    const answer = await backend.get("/review-queue");
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "DELETE" && entry.path === "/rest/v1/pin_review_queue").length,
+      0,
+      "malformed schedules response must not cause stale-row cleanup"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
