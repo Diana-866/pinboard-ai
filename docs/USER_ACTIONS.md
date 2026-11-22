@@ -3863,3 +3863,12 @@ npm.cmd test
 - Vercel success on docs HEAD `6bba725...`; no deployment claim.
 - PR #96 comment `7080314663` asks rebase/reconciliation of the migration sequence; PR not merged.
 - UA-077/078 remain pending. Final docs closeout is being committed on top of current verified main; final SHA will be checked.
+
+
+## UA-079 — PR #96 storage migration findings before merge
+
+- **Status:** awaiting fixes on the unmerged PR; no merge authorized by this review.
+- **Review comment:** PR #96 comment `7080338627`; report `docs/audits/2026-11-22-pr96-storage-migration-review.md`.
+- **Required corrections:** (1) recognize both custom-base and legacy Supabase image URLs during lifecycle deletion; (2) preserve S3 source Content-Type; (3) verify image bytes with checksum, not size alone, for resume and copy validation.
+- **Acceptance evidence:** regression tests for legacy/new URL deletion, S3 metadata preservation, and same-size/different-content objects; actual test run and migration dry-run against disposable credentials/environment. Do not use production storage for acceptance.
+- **Owner decision:** review findings must be resolved before merge consideration. No production cutover is implied.
