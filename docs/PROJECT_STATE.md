@@ -4043,3 +4043,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Vercel:** `success` on current docs HEAD; not production deployment proof.
 - **PR #96:** comment `7080314663` added; PR remains open, consent/storage cutover blockers remain.
 - **Owner gates:** UA-077 and UA-078 local disposable PostgreSQL/backend acceptance pending. No production SQL executed.
+
+
+### 2026-11-22 — PR #96 storage migration safety review (AUD-406)
+
+- **Scope:** static review of the unmerged PR #96 only; findings do not describe current main behavior.
+- **Findings posted:** legacy Supabase image URLs are not recognized by deletion when custom public base is configured; S3-to-S3 copy replaces image Content-Type with `application/octet-stream`; copy resume/verify relies on size rather than byte checksum.
+- **Review comment:** PR #96 comment `7080338627`; PR remains open and unmerged.
+- **Report:** `docs/audits/2026-11-22-pr96-storage-migration-review.md` (commit `69f95f7de4288ae1a1e3bf7e0b6a1820aa255db4`).
+- **Verification:** static patch review only. No Docker build, tests, backup/restore, or storage transfer run.
+- **Safety:** no production credentials, production DB, or external storage operations used.
+- **Next:** address the three review findings with regression tests before merge consideration; continue independent main-branch readiness work.
