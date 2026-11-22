@@ -4,7 +4,7 @@ const { asError } = require("./dbErrors");
 const { readArrayQueryResult } = require("./fetchAllPages");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_MATCH_QUERY_ROWS = 1000;
+const MAX_MATCH_QUERY_ROWS = 999;
 const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
 
 function parseLimit(value) {
@@ -75,8 +75,8 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     creditPurchaseRows = readArrayQueryResult(creditsResult);
     // A capped lookup is not a complete reconciliation result. Fail closed rather than
     // letting an unseen duplicate provider order appear to be a unique local payment.
-    if (subscriptionRows.length > MAX_MATCH_QUERY_ROWS ||
-        creditPurchaseRows.length > MAX_MATCH_QUERY_ROWS) {
+    if (subscriptionRows.length >= MATCH_QUERY_LIMIT ||
+        creditPurchaseRows.length >= MATCH_QUERY_LIMIT) {
       throw httpError(502, "Слишком много совпадений для безопасной сверки. Требуется ручная проверка.");
     }
   }
