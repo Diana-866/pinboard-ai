@@ -3933,9 +3933,9 @@ npm.cmd test
 
 **Status:** awaiting local runtime evidence. No Node test PASS is claimed from static GitHub review.
 
-## UA-081 — runtime acceptance for AUD-410 subscription and email-outbox reads
+## UA-081 — runtime acceptance for AUD-410 billing/outbox and AUD-411 retention inventory reads
 
-**Why:** AUD-410 closes malformed successful database envelopes that previously appeared as empty subscription or email-outbox inventories. Code and regression declarations are published; runtime remains unverified because GitHub Actions has no runner.
+**Why:** AUD-410 and AUD-411 close malformed successful database/RPC envelopes that previously appeared as empty subscription, email-outbox, or storage retention inventories. Code and regression declarations are published; runtime remains unverified because GitHub Actions has no runner.
 
 **After pulling current `main`, from repository root in PowerShell:**
 
@@ -3948,8 +3948,9 @@ npm.cmd test
 **Acceptance:**
 - malformed admin `subscriptions` response returns HTTP 502 and does not query the secondary `users` email lookup;
 - malformed email outbox count and dead-row envelopes fail with HTTP 502, never a zero/empty health report;
+- malformed `list_pin_image_retention_candidates` RPC returns 502, no candidates array, and no mutations;
 - focused and full backend tests exit 0;
-- inventory total matches 1444 declarations.
+- inventory total matches 1445 declarations.
 
 **Safety:** run only with the test harness/local disposable configuration. Do not use production Supabase, Prodamus, SMTP, Pinterest or Storage credentials.
 
