@@ -37,3 +37,15 @@ No production database, Prodamus, live payment, Storage, Pinterest, DNS or deplo
 ## Next
 
 Run focused and full backend tests locally as recorded in UA-083. Continue reviewing payment reconciliation for duplicate/contradictory provider IDs and require runtime acceptance before release.
+
+
+## Owner-reported local runtime acceptance — 2026-11-22
+
+The repository owner ran the commands from UA-083 on the local Windows checkout and pasted the complete output into this conversation.
+
+- Focused command: `node --test test/admin-payment-creation-requests.test.js test/test-inventory.test.js` — **12 passed, 0 failed**, exit completed successfully.
+- Full command: `npm.cmd test` — output summary: **1437 passed, 0 failed, 1 skipped**, 0 cancelled; duration **131593.1814 ms**. The command returned to the PowerShell prompt, so the run completed.
+- The focused regression includes the duplicate provider-order/local-payment identity case. The full suite also reports the inventory checks passed.
+- Evidence source: owner-pasted terminal output in the ChatGPT conversation on 2026-11-22; this is owner-reported local evidence, not a run performed by the GitHub connector or CI.
+
+**Result:** UA-083 runtime acceptance is satisfied for the current checkout against the then-current `main` commit `7661695f94e4eeded5e89d3928fc8262349ef0ce`. This does not establish production integration, deployment readiness, or a successful Vercel build. No production systems were touched.
