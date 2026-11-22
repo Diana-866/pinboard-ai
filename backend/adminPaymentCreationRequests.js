@@ -1,6 +1,7 @@
 const supabase = require("./supabase");
 const { httpError } = require("./validate");
 const { asError } = require("./dbErrors");
+const { readArrayQueryResult } = require("./fetchAllPages");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -40,15 +41,15 @@ function serializeRequest(row, now = Date.now()) {
 
 async function listPaymentCreationRequests(query = {}, now = Date.now(), db = supabase) {
   const limit = parseLimit(query.limit);
-  const { data, error } = await db
+  const requestResult = await db
     .from("payment_creation_requests")
     .select("id, provider_order_id, user_id, request_kind, status, error_code, created_at, updated_at")
     .in("status", ["unknown", "creating"])
     .order("updated_at", { ascending: true })
     .limit(limit);
-  if (error) throw asError(error);
+  if (requestResult.error) throw asError(requestResult.error);
 
-  const requestRows = data || [];
+  const requestRows = readArrayQueryResult(requestResult);
   const orderIds = [...new Set(requestRows.map((row) => row.provider_order_id).filter(Boolean))];
   let subscriptionRows = [];
   let creditPurchaseRows = [];
@@ -64,8 +65,8 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     ]);
     if (subscriptionsResult.error) throw asError(subscriptionsResult.error);
     if (creditsResult.error) throw asError(creditsResult.error);
-    subscriptionRows = subscriptionsResult.data || [];
-    creditPurchaseRows = creditsResult.data || [];
+    subscriptionRows = readArrayQueryResult(subscriptionsResult);
+    creditPurchaseRows = readArrayQueryResult(creditsResult);
   }
 
   const paymentByOrderId = new Map();
