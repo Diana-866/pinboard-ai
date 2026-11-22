@@ -4402,3 +4402,12 @@ AUD-419's original commit-level acceptance was 10 declarations / 1,455 total. Su
 - **Owner gates:** UA-088 backend deletion inventory; UA-089 admin authorization; UA-090 frontend tests/build remain pending. No test PASS claimed.
 - **Safety:** no production DB, deletion worker, payment/provider, Pinterest, Storage, DNS or deployment action.
 - **Next:** owner runs the three local acceptance tasks from current main after sync; continue code review and release gates. No background work claimed.
+
+
+### 2026-11-22 — Stale upload inventory rejects malformed RPC data (AUD-423)
+
+- **Finding:** `quarantineStalePinImageUploads` and `reconcileStalePinImageUploads` treated a successful RPC response with `data: null` or non-array data as an empty stale-upload queue. That could hide outstanding upload reservations; the quarantine path could report no work instead of surfacing an invalid inventory response.
+- **Fix:** both functions now use the shared `readArrayQueryResult` contract. Database errors propagate and malformed successful envelopes fail with HTTP 502 before quarantine RPCs or Storage inspection.
+- **Regression:** two tests assert malformed inventory envelopes fail closed and no subsequent mutation/Storage calls occur. Backend inventory updated from 1458 to 1460 declarations; pin-image lifecycle test file 52 to 54.
+- **Runtime:** not run in this GitHub editing environment. Owner-local Node gate is recorded in UA-091.
+- **Safety:** no production database, storage, account deletion, payment, Pinterest, DNS or deployment operations.
