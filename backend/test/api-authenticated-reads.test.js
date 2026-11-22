@@ -3066,6 +3066,26 @@ test("an administrator's subscription list is bounded and carries no credentials
   }
 });
 
+test("an administrator subscription inventory rejects a malformed successful database response", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "subscriptions", { status: 200, body: null });
+
+    const answer = await backend.get("/admin/subscriptions");
+
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(answer.body.subscriptions, undefined);
+    assert.equal(
+      backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === "/rest/v1/users").length,
+      0,
+      "a malformed subscription inventory must stop before the secondary user lookup"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
 test("the webhook exception log returns only the documented columns", async () => {
   const backend = await startBackend();
   try {
