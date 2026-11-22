@@ -4250,3 +4250,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Commits:** source `7099c6fc313b24e05df72079ef390c79bd327acf`; test `15d5baecfe45362060254510102b1d9c1bf29b96`; inventory `f0c784b54002953417cbbaeaf105fed7185cfd52`; audit `858eff56cc897478783ffd02f12cf7820b668bca`.
 - **Verification:** source/test/inventory re-fetched; static contract and counts checked. Node runtime NOT RUN; UA-084 required. No production systems touched.
 - **Next:** continue financial/admin reconciliation review; existing DB, Storage, deployment and owner-runtime gates remain.
+
+### 2026-11-22 — Scope generation-task truncation to capped batches (AUD-416)
+
+- **Finding:** one capped 500-row task batch set a global truncation flag and incorrectly labelled generation requests in other complete batches as truncated.
+- **Fix:** record request IDs from capped batches and derive each request's reason from its own ID; queue-level `truncated.tasks` remains true if any batch hits the cap.
+- **Regression:** 51 requests split across two batches; first batch capped, request 61 in the complete second batch. Inventory 1450 → 1451; admin financial tests 8 → 9.
+- **Commits:** source `a6f0e0c997d7b400ecede47c154c751c7885adb4`; test `71f7ffe7f35eb016e8bf347b473cf46cd259bc30`; inventory `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3`; audit `c06b57244570f26d516b4be74dcab221bb7c13c2`.
+- **Verification:** source/test/inventory re-fetched; static contract/counts checked. Node runtime NOT RUN; UA-085 required. No production systems touched.
+- **Next:** owner/local focused tests; continue backend review.
