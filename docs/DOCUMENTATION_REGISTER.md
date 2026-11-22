@@ -2158,3 +2158,18 @@ Review comment posted to PR #96: `7080338627`. State commit `d9c0d85d50167f443b2
 - AUD-406 PR #96 review comment: `7080338627`; audit report commit `69f95f7de4288ae1a1e3bf7e0b6a1820aa255db4`; PR still open/unmerged.
 - Owner actions: UA-078 runtime acceptance; UA-079 PR migration-safety fixes.
 - Node/PostgreSQL runtime NOT VERIFIED. Actions source/test runs failed before steps (runner allocation); Vercel status success on documentation HEAD is not deployment acceptance.
+
+
+### AUD-407 — review queue malformed query envelopes (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/fetchAllPages.js` | `34663150a3c4c9ca657d719461f7529df7f6f335` | Shared strict PostgREST array-envelope validator, including page and overflow reads |
+| `backend/index.js` | `5547b2b4059328d17ecfb02c6333b5f4f788bee3` | Review queue validates pins/schedules batches before reconciliation |
+| `backend/test/fetch-all-pages.test.js` | `6c6c6259882aa45c683cd1a09dbd8d0d8cd6cf9b` | Malformed envelope helper regression |
+| `backend/test/api-authenticated-reads.test.js` | `c613f77756c5c20924214e417582fdcd8a999a33` | 502 + no DELETE regressions for malformed pins/schedules |
+| `backend/test/review-queue-route-contract.test.js` | `52b901790a6279fc9a6e0e8a5340b1c808395bca` | Validation-before-reconciliation source contract |
+| `backend/test/test-inventory.json` | `afdca821f581a28630b088bf192f89eccc65f0f9` | Declaration inventory updated to 1437 |
+| `docs/audits/2026-11-22-review-queue-malformed-envelope.md` | created in commit `4aec2622631c8009a3b696eb9206e675f3c8783e` | Root cause, implementation, commit list and verification boundary |
+
+Commits: helper `8b80eff40db9e87e1bcd91c5a89cbaf0f1cdd3be`; route `9d6b1c9d04d99053568157775b1b2eff787f1a3a`; tests `d3187215dacb1e0eba2f1c672fa87b769a46bbed`, `0a76269dd9cc617c96fb534029f369794ca64a29`, `5bb199b37bc76bc360b4f1311274c79a5d82686c`; inventory `3db7df927f6cd9a51b866fb3c2f8bc31ac491a8a`. State commit `19e1c5471ba78b24f3cda43b1490b68d3265a67e`; owner action commit `2e7362a9154e2f1677db3fac8f6983b2b9d47377`. Runtime tests NOT RUN; UA-076 includes targeted and full backend commands.
