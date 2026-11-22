@@ -3976,3 +3976,25 @@ npm.cmd test
 
 **Status:** Vercel success confirmed for `1a36afa502f570d3d36290e4837207ddeca20876`; Actions/runtime tests remain unverified and require runner/local execution.
 
+
+
+## UA-083 — runtime acceptance for duplicate payment reconciliation matches (AUD-414)
+
+**Finding:** the admin payment-creation reconciliation map silently overwrote duplicate subscription rows sharing one provider order ID. AUD-414 now rejects duplicate subscription and credit-purchase records for the same order and adds a regression test. Source/test/inventory are published on `main`; runtime has not been executed by this connector session.
+
+**After synchronizing current `main`, from the repository root in PowerShell:**
+
+```powershell
+cd backend
+node --test test/admin-payment-creation-requests.test.js test/test-inventory.test.js
+npm.cmd test
+```
+
+**Acceptance:**
+- focused tests and full backend suite exit 0;
+- duplicate subscription and duplicate credit-purchase rows fail closed with `provider order ID is linked to multiple local payment records`;
+- test inventory validates 1449 declarations (admin payment-creation test file: 12).
+
+**Safety:** use the repository test harness only. Do not connect to production Supabase, Prodamus, production Storage or Pinterest; do not use live payment IDs or credentials.
+
+**Status:** awaiting owner/local runtime evidence. Static GitHub re-fetch confirms the guard, regression declaration and inventory counts, but no Node test PASS is claimed.
