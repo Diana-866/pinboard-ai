@@ -4229,3 +4229,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Assertions: duplicate guard true; duplicate regression present; 12 test declarations; inventory 1449 total and file count 12; AUD-414 in state/register; UA-083 in owner actions.
 - Latest GitHub status checked on current HEAD `98d17762fdecaf9f773111216bf63240340252b7`: Vercel `pending`. This is not a test result or deployment acceptance.
 - Focused and full Node runtime tests remain NOT RUN; UA-083 is the owner gate. No production systems touched.
+
+
+## Owner-reported local runtime acceptance — AUD-414 (2026-11-22)
+
+- Owner executed UA-083 on the local Windows checkout and supplied terminal output.
+- Focused `node --test test/admin-payment-creation-requests.test.js test/test-inventory.test.js`: 12 passed, 0 failed.
+- Full `npm.cmd test`: 1437 passed, 0 failed, 1 skipped, 0 cancelled; duration 131593.1814 ms. The process returned to the prompt.
+- Evidence is owner-reported, not a connector/CI execution. Record and close the local runtime gate only; this does not prove production DB/provider/deployment acceptance.
+- Evidence and boundary: `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`.
+- Previous main HEAD used for the owner run: `7661695f94e4eeded5e89d3928fc8262349ef0ce`.
+- No production database, Prodamus, real payment, Storage, Pinterest, DNS or deployment action was performed.
