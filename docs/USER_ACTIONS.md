@@ -4060,3 +4060,18 @@ npm.cmd test
 - Actions run `45038055140` (`atomic-payment-integration.yml`) and `45038055126` (`persisted-boards-checks.yml`) on code commit `cd537c3cdb86f51f8c6c63dcc44de90d4720def6` completed `failure`; both jobs have `runner_id=0` and empty `steps`. No test command ran; this is runner allocation failure, not a code test result.
 - Vercel status on final main HEAD checked at closeout: `failure`, description `Deployment rate limited — retry in 24 hours` (`build-rate-limit`). No deployment acceptance.
 - **Status remains pending owner/local runtime evidence.** Do not rerun Actions until a functioning runner is available; no production/provider action is required for this local test task.
+
+
+## UA-088 — Runtime acceptance for null account-deletion inventory lists (AUD-419)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Base:** `f3b89191493cc2ccd8d64bba77dbdd49d14faf2d`.
+- **Fix:** oldest-pending and attention-job list queries now require arrays; successful `data:null` is rejected instead of being shown as an empty queue.
+- **After syncing latest `main`, from repository root in PowerShell:**
+  ```powershell
+  cd backend
+  node --test test/admin-account-deletion-inventory.test.js test/test-inventory.test.js
+  npm.cmd test
+  ```
+- **Acceptance:** focused and full backend tests exit 0; both null-result scenarios fail closed; inventory is 1,455 declarations and account-deletion inventory test file has 10.
+- Report tested HEAD, exact commands, summary and exit codes. Use test harness only; do not connect to production or run deletion jobs.
