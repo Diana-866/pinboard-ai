@@ -3997,4 +3997,4 @@ npm.cmd test
 
 **Safety:** use the repository test harness only. Do not connect to production Supabase, Prodamus, production Storage or Pinterest; do not use live payment IDs or credentials.
 
-**Status:** awaiting owner/local runtime evidence. Static GitHub re-fetch confirms the guard, regression declaration and inventory counts, but no Node test PASS is claimed.
+**Status:** owner-reported local runtime acceptance completed 2026-11-22. Focused suite: 12 passed, 0 failed. Full `npm.cmd test`: 1437 passed, 0 failed, 1 skipped (exit completed). Exact output is recorded in `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`. This was run by the owner on the local Windows checkout, not by this connector or CI; production integration remains unverified.
