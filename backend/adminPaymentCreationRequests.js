@@ -4,8 +4,8 @@ const { asError } = require("./dbErrors");
 const { readArrayQueryResult } = require("./fetchAllPages");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_MATCH_QUERY_ROWS = 999;
-const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
+// 1,000 is the REST cap; treat a full response as potentially truncated.
+const MATCH_QUERY_LIMIT = 1000;
 
 function parseLimit(value) {
   if (value === undefined || value === null || value === "") return 50;
