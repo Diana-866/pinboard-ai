@@ -41,15 +41,17 @@ function serializeRequest(row, now = Date.now()) {
 
 async function listPaymentCreationRequests(query = {}, now = Date.now(), db = supabase) {
   const limit = parseLimit(query.limit);
+  const fetchLimit = limit + 1;
   const requestResult = await db
     .from("payment_creation_requests")
     .select("id, provider_order_id, user_id, request_kind, status, error_code, created_at, updated_at")
     .in("status", ["unknown", "creating"])
     .order("updated_at", { ascending: true })
-    .limit(limit);
+    .limit(fetchLimit);
   if (requestResult.error) throw asError(requestResult.error);
 
-  const requestRows = readArrayQueryResult(requestResult);
+  const fetchedRequestRows = readArrayQueryResult(requestResult);
+  const requestRows = fetchedRequestRows.slice(0, limit);
   const orderIds = [...new Set(requestRows.map((row) => row.provider_order_id).filter(Boolean))];
   let subscriptionRows = [];
   let creditPurchaseRows = [];
@@ -113,6 +115,7 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     read_only: true,
     automatic_reconciliation: false,
     limit,
+    truncated: fetchedRequestRows.length > limit,
     count: items.length,
     unknown_count: items.filter((item) => item.status === "unknown").length,
     creating_count: items.filter((item) => item.status === "creating").length,
