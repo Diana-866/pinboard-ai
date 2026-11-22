@@ -2211,3 +2211,14 @@ Commits: source `42e4546998d50944ff2ab486c0210e2d0484f3d2`; HTTP tests `e2cc97ed
 
 Commits: implementation `63c383029b8e6ff4f3e92d54bd6167b43c745952`; API regression `b2cd1d445772cd24fbcccb84aff25ec9e5fc136d`; outbox regression `6fbcf5bfc68d8268e30e717b5d98903b4160ad19`; inventory `0223cb5eec423007fc9c6284f9c5dbd20d6b6d4c`; state `c0fb9299ccfd037c701912049892f5d931ac83cc`; owner action `08c91d0f9629fe6eded82cc8adbf77e9f165518f`. Runtime NOT RUN; UA-081 records focused and full backend commands.
 
+### AUD-411 — retention candidate inventory malformed RPC fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/index.js` | `a065f4743d0a510e219c8dfcc1f86849d40ffffa` | Validates `RETURNS TABLE` RPC array instead of `data || []` |
+| `backend/test/api-authenticated-reads.test.js` | `0a5b6b01835c1edf004dd86f67232fd8d8a0a8ff` | Malformed retention RPC returns 502 and no mutations |
+| `backend/test/test-inventory.json` | `f4c901494fee1135415b2eaaf5444119bfbf995d` | Inventory 1445 declarations |
+| `docs/audits/2026-11-22-retention-inventory-malformed-rpc.md` | created in commit `c110f8592ecc726c1828c6e3ce7110e76e68bded` | Root cause, fix and verification boundary |
+
+Commits: route `f7d6ade5601db604b1eb7dfc778aa21769f2bca9`; regression `1d78395fb5c0a542e3146ee2971edf0fd7d4edd6`; inventory `c8f0835a5907863af4f9481c765c4c7a16b7d499`; state `55831c3ae64601581c97fb4a8e17eda1f95e204d`; owner action `bc9d5494f3c70dbbd31b053524416bf9c150d9bd`. Runtime NOT RUN; UA-081 includes storage/admin and full backend commands.
+
