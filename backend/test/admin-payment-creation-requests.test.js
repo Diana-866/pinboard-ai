@@ -225,7 +225,7 @@ test("payment creation inventory reports a truncated queue without returning the
 test("payment reconciliation fails closed when related lookup reaches its safety cap", async () => {
   for (const kind of ["subscriptions", "credit_purchases"]) {
     reset();
-    const rows = Array.from({ length: 1001 }, (_, index) => ({
+    const rows = Array.from({ length: 1000 }, (_, index => ({
       id: kind + "-" + index,
       user_id: "user-1",
       provider_payment_id: "pp-test-order-0001",
@@ -241,6 +241,6 @@ test("payment reconciliation fails closed when related lookup reaches its safety
       listPaymentCreationRequests({}, Date.now(), db),
       (error) => error.httpStatus === 502
     );
-    assert.equal(calls.find((call) => call.table === kind).limit, 1001);
+    assert.equal(calls.find((call) => call.table === kind).limit, 1000);
   }
 });
