@@ -3962,7 +3962,7 @@ npm.cmd test
 
 ## UA-082 — unblock Vercel commit identity and obtain real CI execution
 
-**Observed:** PR #96's Vercel check explicitly refused deployment for commit `bc3271dcf49b9a093974f03705eeb8a04149abc8`: GitHub could not verify the commit author account for the Diana Vercel team. Latest checked `main` Vercel status is `pending`. GitHub Actions jobs on main complete in ~3 seconds with `runner_id=0` and `steps=null`; no test command runs.
+**Observed:** PR #96's Vercel check explicitly refused deployment for commit `bc3271dcf49b9a093974f03705eeb8a04149abc8`: GitHub could not verify the commit author account for the Diana Vercel team. At the earlier check, main Vercel was pending. After the documented changes, commit `1a36afa502f570d3d36290e4837207ddeca20876` reports Vercel `success` (deployment target returned by GitHub status). Current Actions runs for inventory commit `82e84cfed96c1b685ec18614489a5428957ea445` still conclude `failure` with `steps=null` and no logs; no test command result is available.
 
 **Owner steps (account access required):**
 1. Open GitHub Settings → Emails. Verify that the email used for your commits is verified and associated with the account that has Vercel team access. Check the author email of the exact commit in the failed Vercel message; do not assume a different commit's email is the same.
@@ -3970,9 +3970,9 @@ npm.cmd test
 3. After identity is corrected, create a new reviewed commit (do not rewrite or force-push shared main history solely to alter authorship) and confirm a fresh Vercel deployment reaches Ready.
 4. For Actions, restore a functioning runner/account quota or run the focused/full test commands from UA-080/081 on a local Node 22 checkout. Record command, exit code and test totals.
 
-**Acceptance:** a fresh main commit has Vercel deployment Ready; at least one actual Actions/local run executes the tests and reports a real result. Runner allocation failure is not a test PASS.
+**Acceptance:** Vercel deployment for `1a36afa502f570d3d36290e4837207ddeca20876` is now successful. Remaining acceptance is at least one actual Actions/local run that executes the tests and reports a real result. A job failure with no steps/logs is not a test PASS.
 
 **Safety:** do not deploy PR #96 or enable storage cutover as part of this account repair. No credentials or secrets should be pasted into chat.
 
-**Status:** owner access required; main Vercel pending and runtime tests not verified.
+**Status:** Vercel success confirmed for `1a36afa502f570d3d36290e4837207ddeca20876`; Actions/runtime tests remain unverified and require runner/local execution.
 
