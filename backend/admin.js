@@ -25,10 +25,21 @@ async function fetchAllRows(db, table, columns, pageSize = STATS_PAGE_SIZE, maxR
 async function requireAdmin(req, res, next) {
   try {
     const { data: user, error } = await supabase.from("users").select("is_admin").eq("id", req.userId).single();
-    if (error || !user || !user.is_admin) throw new Error("Доступ запрещён");
-    next();
+    if (error) {
+      // A missing user is an authorization denial; infrastructure/query failures
+      // must remain distinguishable so an outage is not misdiagnosed as a role issue.
+      if (error.code === "PGRST116") {
+        return res.status(403).json({ error: "Доступ запрещён" });
+      }
+      return res.status(503).json({ error: "Не удалось проверить административные права" });
+    }
+    if (!user || typeof user.is_admin !== "boolean") {
+      return res.status(503).json({ error: "Не удалось проверить административные права" });
+    }
+    if (!user.is_admin) return res.status(403).json({ error: "Доступ запрещён" });
+    return next();
   } catch (e) {
-    res.status(403).json({ error: "Доступ запрещён" });
+    return res.status(503).json({ error: "Не удалось проверить административные права" });
   }
 }
 
