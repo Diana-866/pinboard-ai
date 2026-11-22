@@ -2293,3 +2293,12 @@ Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b
 - Final synchronized documents before this register commit: PROJECT_STATE blob `c66dc8d135d6970d805d0743ebc3a4b6f30ae98c` (receipt commit `9e8c966aaef02ea60094de8281113026f997bce1`); USER_ACTIONS blob `bb3bd99de218249e791878ab0073be6395b91885`; audit report re-fetched; register source blob `d4f95e1c6bfa05f47cd50d4c11da7e72117b5b80`.
 - Confirmed static contract: guard present, regression present, 12 declarations, inventory 1449 total / 12 file declarations. Node runtime NOT RUN; UA-083 remains pending.
 - Main HEAD before this register commit: `9e8c966aaef02ea60094de8281113026f997bce1`. This register update is the final publication step for the working period; final resulting HEAD is reported in the assistant closeout.
+
+
+### AUD-414 owner-reported runtime acceptance — 2026-11-22
+
+- Owner ran focused local tests: 12 passed, 0 failed.
+- Owner ran full `npm.cmd test`: 1437 passed, 0 failed, 1 skipped; duration 131593.1814 ms.
+- Source of evidence: terminal output pasted by the repository owner; not executed by the connector or CI.
+- UA-083 local runtime gate is closed for the tested checkout. Production integrations and Vercel deployment remain separate gates.
+- Detailed evidence: `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`.
