@@ -4339,3 +4339,33 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Runtime:** NOT RUN; UA-088 pending. Actions runner allocation failure means no test result.
 - **Safety:** no production DB, account deletion, provider, storage, DNS or deployment action.
 - **Next:** owner/local UA-088 focused and full Node 22 tests; continue admin/read-path review.
+
+
+## Follow-up synchronization — AUD-419/AUD-420/AUD-421 (2026-11-22)
+
+### AUD-419 current-main clarification
+AUD-419's original commit-level acceptance was 10 declarations / 1,455 total. Subsequent AUD-420 added two deletion-inventory tests and the sentinel/row-validation implementation, so the deletion test file now has 12 declarations and inventory 1,457 at that commit. AUD-421 adds one admin-access test; current main inventory is 1,458. The earlier AUD-419 report now explicitly records this history.
+
+### 2026-11-22 — Account-deletion inventory truncation and row validation (AUD-420)
+
+- **Implementation commit:** `ed5bceab60ec39e6bf8f098566996306d04f846d` (source, tests, inventory and report).
+- **Finding/fix:** the attention-job list was limited without a truncation indicator and row fields were mapped permissively. Query now fetches `limit + 1`, returns only `limit`, exposes `requiring_attention_truncated`, and validates UUIDs, step key, status, counters and timestamps. Oldest pending request is validated too.
+- **Static:** current source blob `0b973f6f956a064e9693ad62497de0100abe283c`; test blob `8c8ea7216960c1a788d296efb580eb2d5c93a88f`; inventory blob at AUD-420 commit `afb9a0366ce06555882c22ed7e5bdbf84400f9ce` (1,457; deletion tests 12). Report `docs/audits/AUD-420-account-deletion-inventory-truncation.md`, publication receipt `44423470fcb9f1add8a7fc371951f46ab26eb8b5`.
+- **Runtime/UI:** NOT RUN; owner must run UA-088 and verify the admin UI handles the truncation flag. No production deletion action.
+
+### 2026-11-22 — Admin authorization distinguishes DB outage (AUD-421)
+
+- **Base:** `5f168f287cf49b3552b90794439292c7265ad38c`.
+- **Finding:** `requireAdmin` returned 403 for every lookup error, hiding database outage as a role denial.
+- **Fix:** known missing user (`PGRST116`) and non-admin remain 403; infrastructure errors, thrown lookup failures and malformed success return safe 503. Admin access still depends only on the database row.
+- **Commits:** source `4b144881c7c448edc0477a12c407f5dc58472b60`; regression `f3cc3a3310b5136b14ae2e2b41f9ca495c481474`; inventory `ea8ed10b7899567544046ade45ed16cbf76b4bb5`; audit `dfe751db527e612f7176d67879b828a2d47db298`.
+- **Static:** source blob `a4526e9d65ecc5e11bc1cbde9566b222265a9367`; test blob `04548a27fa58a7fed6928f04ca0be6d22d2a65ea`; current inventory blob `3a5ff864da3257780ebabccf0be215bf7e5dd692` (1,458; admin-access test 4).
+- **Runtime:** NOT RUN; UA-089 pending. No test PASS claimed.
+
+### Working-period closeout — AUD-419 through AUD-421
+
+- **HEAD before this state synchronization:** `af92eae1e3b5baeda827eb55e4e4fb715b696ac0`.
+- Current inventory: 1,458 declarations; admin-access 4; account-deletion inventory 12.
+- Required source/test/inventory re-fetched; static declaration counts match.
+- Actions runner previously failed before steps; Vercel build-rate-limit remains an external blocker. No production DB, account deletion, payments, Pinterest, Storage, DNS or deployment touched.
+- **Next:** owner runs UA-088/089 locally on Node 22 and confirms the admin UI's new truncation field; continue independent code review. No background work claimed.
