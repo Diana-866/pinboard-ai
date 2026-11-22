@@ -2140,3 +2140,12 @@ Commits: script `d1cdf597e5568951eabbd57f3552e9b984cf29db`; test `7a57d1aa16b9ae
 - Actions jobs `137234810601`, `137234810203`, `137234810090`, `137234784041`, `137234784261` all runner allocation failure with zero steps. Vercel status success on docs HEAD; no deployment proof.
 - PR #96 comment `7080314663`; release runtime acceptance remains UA-077/078.
 
+
+
+### AUD-406 — PR #96 storage migration safety review (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `docs/audits/2026-11-22-pr96-storage-migration-review.md` | created in commit `69f95f7de4288ae1a1e3bf7e0b6a1820aa255db4` | Review of legacy URL deletion, S3 Content-Type preservation, and checksum verification |
+
+Review comment posted to PR #96: `7080338627`. State commit `d9c0d85d50167f443b28cbd5a71f30c5db8f539f`; owner-action commit `8cbd3e0cfd23acf49cdbd44e622ef8eb63fa0b0f`. PR remains open/unmerged. Static review only; no runtime/storage migration executed. UA-079 tracks required fixes and acceptance evidence.
