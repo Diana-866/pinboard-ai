@@ -2718,7 +2718,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `54a40d53` | 2026-11-22 | docs: chronology rows for the 21-22.11 session commits | §165.5 |
 | `f57d9773` | 2026-11-22 | docs: section 165.6 and chronology row for the QA automation commit | §165.6 |
 | `85bd6080` | 2026-11-22 | docs: chronology rows for the documentation commits (54a40d53, f57d9773) | §165.6 |
-| `85bd6080` | 2026-11-22 | docs: chronology rows for the documentation commits (54a40d53, f57d9773) | §165.6 |
+| `1f7ba307` | 2026-11-22 | docs: infrastructure comparison section 5.1 (providers under 4000 RUB/mo, code-level corrections) | §165.7 |
 
 ### 56.5. Что это даёт владельцу
 
@@ -6342,3 +6342,17 @@ Supabase Storage, сборка Docker-образа, деплой Vercel с те�
 Исправлен текст регистрации при недоступной почте: раньше ответ обещал отправленное письмо при
 `verificationEmailSent: false`. Добавлена инструкция `docs/RUNBOOK_BACKUP_RESTORE.md` и скрипт
 `scripts/backup-postgres.sh` с проверкой читаемости копии.
+
+### 165.7. Инфраструктура: сравнение под 4000 ₽/мес (вклад Gemini)
+
+Сравнение провайдеров выполнил teammate-агент Gemini по публичным страницам, результат сведён в
+`docs/DEVLOG.md`, часть 5.1. Рекомендуемая связка: Amvera «Начальный Плюс» для backend, managed PostgreSQL
+с автобэкапами, статика на Amvera, DNS на deSEC или Cloudflare, транзакционная почта Brevo, S3-хранилище
+Cloud.ru — **1085 ₽/мес** без прослойки и **1375 ₽/мес** с PostgREST отдельным контейнером.
+
+Три поправки, выявленные при сверке с кодом: backend общается с базой через REST Supabase, поэтому нужен
+PostgREST отдельным контейнером (путь проверен на локальном стенде) либо перевод на драйвер `pg`;
+Supabase Storage требует слоя S3-клиента; смена NS не переносит домен от регистратора Beget.
+
+Цены требуют проверки перед оплатой: глубина бэкапов и наличие PITR у Amvera, исходящий трафик Cloud.ru,
+регистрация Brevo на домен без зарубежной карты, Registrar Lock у домена.
