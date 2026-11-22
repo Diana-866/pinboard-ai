@@ -4053,3 +4053,10 @@ npm.cmd test
 - **Acceptance:** focused tests and full backend suite exit 0; each related lookup kind (generation, regeneration, subscriptions, credit purchases) fails closed at 1,000 returned rows; inventory is exactly 1,454 declarations (financial test file 10; payment-creation test file 14).
 - Report exact tested HEAD, commands, test summary and exit codes. Do not connect production Supabase, Prodamus, live payments, Storage or Pinterest.
 - **What this proves:** local Node regression only. It does not prove production data shape, provider behavior, CI runner availability, deployment or payment settlement.
+
+
+### UA-087 — CI/deployment receipt (2026-11-22)
+
+- Actions run `45038055140` (`atomic-payment-integration.yml`) and `45038055126` (`persisted-boards-checks.yml`) on code commit `cd537c3cdb86f51f8c6c63dcc44de90d4720def6` completed `failure`; both jobs have `runner_id=0` and empty `steps`. No test command ran; this is runner allocation failure, not a code test result.
+- Vercel status on final main HEAD checked at closeout: `failure`, description `Deployment rate limited — retry in 24 hours` (`build-rate-limit`). No deployment acceptance.
+- **Status remains pending owner/local runtime evidence.** Do not rerun Actions until a functioning runner is available; no production/provider action is required for this local test task.
