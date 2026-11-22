@@ -4402,3 +4402,17 @@ AUD-419's original commit-level acceptance was 10 declarations / 1,455 total. Su
 - **Owner gates:** UA-088 backend deletion inventory; UA-089 admin authorization; UA-090 frontend tests/build remain pending. No test PASS claimed.
 - **Safety:** no production DB, deletion worker, payment/provider, Pinterest, Storage, DNS or deployment action.
 - **Next:** owner runs the three local acceptance tasks from current main after sync; continue code review and release gates. No background work claimed.
+
+
+## 2026-11-22 — AUD-423 admin email-outbox health error inventory
+
+- **Main HEAD before this state receipt:** `2bd415fd2e0818f2effc44ffd30c6c6135c7487e`.
+- **Owner runtime evidence:** focused test `payment-server-error-codes.test.js` failed on exactly two bare `502` messages in `billing.js`: malformed statistics response and malformed count.
+- **Current code-path verification:** `readCountQueryResult` is called by `getEmailOutboxHealth`; that function is called only by `GET /admin/billing/email-outbox`, declared with `requireAuth` and `requireAdmin`. These are operator-only internal data-contract failures, not customer payment states.
+- **Regression change:** `backend/test/payment-server-error-codes.test.js` now documents both admin-only exemptions and asserts that the route retains authentication and admin authorization. Commit `f500b172d7370dc50a57dd7609715003af6a82d9`; test blob `65c094536aff981887b203201df007b443ce40ea`.
+- **Audit:** `docs/audits/2026-11-22-admin-email-outbox-5xx-exemptions.md`, blob `5fb3a9326c94c8d0a93aa922da4728b3afdd36ab`.
+- **Static review:** route, helper call sites, error strings and test guard checked against current main. The test file still has 2 declarations; no inventory count change is expected.
+- **Runtime:** the focused test after the change and full backend suite have NOT been run by this session. UA-091 pending.
+- **Inventory discrepancy:** owner earlier reported computed 1,458 vs expected 1,461. GitHub main's baseline file currently says 1,458 declarations / 175 files. Re-run local `test/test-inventory.test.js`; do not change baseline without reconciling the exact output.
+- **Safety:** no production DB, payment/provider, deployment, DNS or external state changed.
+- **Next:** owner runs UA-091; if focused and inventory checks pass, continue full backend suite and report exact HEAD/results.
