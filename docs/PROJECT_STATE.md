@@ -4065,3 +4065,16 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **CI:** source/test Actions runs `45031148970` and `45031148954` failed before execution; observed runner allocation failure (runner ID 0, zero steps). No Node test or PostgreSQL replay PASS is inferred. Vercel status on `b55523be6c6d3e54fe21ad536586124074dde721` was `success`; this is not deployment acceptance.
 - **Safety:** no production database, production storage, Prodamus, Pinterest or deployment was touched.
 - **Next:** first obtain actual local/available-runner runtime evidence for UA-078; independently require PR #96 review fixes under UA-079. Continue code review after those gates without claiming launch readiness.
+
+
+### 2026-11-22 — Review queue malformed DB envelopes now fail closed (AUD-407)
+
+- **Base:** `ffda1f191ab6e470a51ae0db9eec1934d0ece8d4`.
+- **Root cause:** `GET /review-queue` treated malformed successful related `pins`/`pin_schedules` query results as empty arrays via `result.data || []`. Missing/malformed evidence could cause queue rows to be classified stale and deleted.
+- **Fix:** reusable `readArrayQueryResult` in `backend/fetchAllPages.js`; pager validates every page and overflow probe; review queue validates every batched pins/schedules envelope before reconciliation.
+- **Regression:** malformed pins/schedules HTTP tests require 502 and zero queue DELETE; helper and route-contract tests added; inventory updated from 1433 to 1437 declarations.
+- **Commits:** helper `8b80eff40db9e87e1bcd91c5a89cbaf0f1cdd3be`; route `9d6b1c9d04d99053568157775b1b2eff787f1a3a`; tests `d3187215dacb1e0eba2f1c672fa87b769a46bbed`, `0a76269dd9cc617c96fb534029f369794ca64a29`, `5bb199b37bc76bc360b4f1311274c79a5d82686c`; inventory `3db7df927f6cd9a51b866fb3c2f8bc31ac491a8a`; audit `4aec2622631c8009a3b696eb9206e675f3c8783e`.
+- **Static publication verification:** re-fetched all changed source/test/inventory blobs; confirmed validator usage, no route fallback, validation before reconciliation, and counts 110 + 5 + 3 (inventory total 1437). Full evidence in `docs/audits/2026-11-22-review-queue-malformed-envelope.md`.
+- **Runtime:** Node tests NOT RUN; no runtime PASS. Older PR #95 was not merged due stale base; fix was applied narrowly to current main.
+- **Safety:** no production DB/data or external services touched.
+- **Next:** get backend test execution through a working local/CI runner (UA-076/078 pending); continue independent code review.
