@@ -3653,3 +3653,35 @@ test("malformed schedule retry metadata keeps failed rows visible but disables r
     await backend.stop();
   }
 });
+
+test("malformed webhook exception inventory response is not presented as an empty log", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "billing_webhook_exceptions", { status: 200, body: null });
+
+    const answer = await backend.get("/admin/billing/webhook-exceptions");
+
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(answer.body.exceptions, undefined);
+  } finally {
+    await backend.stop();
+  }
+});
+
+test("malformed pending-order inventory response is not presented as no unresolved payments", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.table("GET", "subscriptions", { status: 200, body: null });
+    backend.db.table("GET", "credit_purchases", { status: 200, body: [] });
+
+    const answer = await backend.get("/admin/billing/pending-orders");
+
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(answer.body.orders, undefined);
+  } finally {
+    await backend.stop();
+  }
+});
+
