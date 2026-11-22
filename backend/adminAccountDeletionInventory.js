@@ -81,10 +81,10 @@ async function getAccountDeletionInventory(query = {}, db = supabase, now = Date
     .order("requested_at", { ascending: true })
     .limit(1);
   if (oldestError) throw oldestError;
-  if (oldestPending != null && !Array.isArray(oldestPending)) {
+  if (!Array.isArray(oldestPending)) {
     throw new Error("account deletion inventory oldest request response is not an array");
   }
-  const oldest = Array.isArray(oldestPending) ? oldestPending[0] || null : null;
+  const oldest = oldestPending[0] || null;
 
   // Blocked and long-running jobs are the ones that need a person.
   const { data: needingAttention, error: attentionError } = await db
@@ -94,11 +94,11 @@ async function getAccountDeletionInventory(query = {}, db = supabase, now = Date
     .order("updated_at", { ascending: true })
     .limit(limit);
   if (attentionError) throw attentionError;
-  if (needingAttention != null && !Array.isArray(needingAttention)) {
+  if (!Array.isArray(needingAttention)) {
     throw new Error("account deletion inventory job response is not an array");
   }
 
-  const jobs = (needingAttention || []).map((row) => ({
+  const jobs = needingAttention.map((row) => ({
     job_id: String(row.id),
     request_id: String(row.request_id),
     step_key: row.step_key,
