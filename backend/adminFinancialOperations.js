@@ -96,6 +96,7 @@ async function getFinancialOperationsQueue(options = {}) {
   const generationIds = generationRequests.map((row) => row.id);
   let taskRows = [];
   let tasksTruncated = false;
+  const truncatedGenerationIds = new Set();
 
   if (generationIds.length) {
     // Keep each REST response below the common 1,000-row API cap (up to 10 tasks/request).
@@ -112,7 +113,10 @@ async function getFinancialOperationsQueue(options = {}) {
     for (const result of taskResults) {
       const rows = readArrayQueryResult(result);
       // A full batch is the REST cap, not proof that the journal ended there.
-      if (rows.length >= TASK_FETCH_LIMIT) tasksTruncated = true;
+      if (rows.length >= TASK_FETCH_LIMIT) {
+        tasksTruncated = true;
+        for (const requestId of batch) truncatedGenerationIds.add(String(requestId));
+      }
       taskRows.push(...rows);
     }
   }
@@ -152,7 +156,7 @@ async function getFinancialOperationsQueue(options = {}) {
 
   const nowMs = Date.now();
   const generation = generationRequests.map((row) => {
-    const summary = summarizeGenerationTasks(tasksByRequest.get(String(row.id)) || [], { truncated: tasksTruncated });
+    const summary = summarizeGenerationTasks(tasksByRequest.get(String(row.id)) || [], { truncated: truncatedGenerationIds.has(String(row.id)) });
     return {
       request_id: String(row.id),
       operation: "generation",
