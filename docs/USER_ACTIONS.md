@@ -4110,3 +4110,15 @@ npm.cmd test
 - Latest Actions runs on the AUD-422 UI commits: `45038989318` (`postgres-atomicity`), `45038989321` (`frontend` and `backend`), `45038985828`, and `45038985913` all failed before execution. Jobs have `runner_id=0` and empty `steps`; no tests/build/SQL ran. Do not treat these as code failures or passes.
 - Vercel status on main HEAD `2b13f46b882c372a906cb44c809169083d2bc47b`: `failure`, `build-rate-limit`, “Deployment rate limited — retry in 24 hours.”
 - UA-088 backend deletion tests, UA-089 admin auth tests and UA-090 frontend tests/build remain pending owner/local evidence. No further runner retry until allocation is available.
+
+
+## UA-091 — Runtime acceptance for stale pin-image upload inventory validation
+
+- **Status:** [ ] Awaiting local Node runtime evidence.
+- **Branch:** `fix/stale-upload-inventory-fail-closed-20261122` (Draft PR to `main`).
+- **Focused gate from repository root:**
+  ```powershell
+  node --test backend/test/pin-image-lifecycle.test.js backend/test/test-inventory.test.js
+  ```
+- **Acceptance:** exit code 0; both malformed `list_stale_pin_image_uploads` response tests reject `data: null` with HTTP 502; quarantine RPC and Storage listing are not called after malformed inventory; inventory total is 1460 and lifecycle declarations are 54.
+- Do not connect to production/Supabase or run quarantine/reconciliation against a live storage bucket for this test.
