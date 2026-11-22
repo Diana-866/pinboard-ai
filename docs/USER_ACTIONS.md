@@ -3845,3 +3845,12 @@ npm.cmd test
 
 После re-fetch опубликованного diff заметил ошибку экранирования в новом inventory test: regex был double-escaped. Исправил на JS regex с одним escape для digit/extension. Скрипты verification корректно ожидают 010–166; test runtime всё ещё NOT RUN. Correction публикуется вместе с обновлённым audit/register/state.
 
+
+
+## UA-078 — verify Windows migration replay summary correction
+
+- **Status:** owner runtime acceptance still required; code/documentation correction published.
+- **What changed:** `scripts/verify.ps1` now reports `001 + 010-166` in both PASS and FAIL summary messages. Regression test checks the correct range and rejects stale `010-161`.
+- **Code/test commits:** `d1cdf597e5568951eabbd57f3552e9b984cf29db`, `7a57d1aa16b9aea8971e1093675bc817b355b30a`. Audit: `567b852ede0141f003b6e1a4b70185b6bf9e0d71`.
+- **Required action:** from a fresh checkout of current `main`, run the backend test suite and then `powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -MigrationsOnly` against a disposable local PostgreSQL instance only. Save full stdout/stderr and exit code. Do not use PIN_TRIAL or production.
+- **Acceptance:** report the actual result; if PostgreSQL setup is not isolated or the test fails, stop and provide the exact error. Do not mark runtime verified based on static source review.
