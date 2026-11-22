@@ -4259,3 +4259,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Commits:** source `a6f0e0c997d7b400ecede47c154c751c7885adb4`; test `71f7ffe7f35eb016e8bf347b473cf46cd259bc30`; inventory `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3`; audit `c06b57244570f26d516b4be74dcab221bb7c13c2`.
 - **Verification:** source/test/inventory re-fetched; static contract/counts checked. Node runtime NOT RUN; UA-085 required. No production systems touched.
 - **Next:** owner/local focused tests; continue backend review.
+
+### Working-period closeout — AUD-415/AUD-416 (2026-11-22)
+
+- **Verified main HEAD before closeout:** `91b86236af1c3ee5027cb0d7ea46169c6b350385`.
+- **Completed:** fixed reservation queue truncation reporting and scoped task-journal truncation to the affected 50-request batch; added two regressions; inventory 1449 → 1451. Audits AUD-415/AUD-416 and owner actions UA-084/UA-085 published.
+- **Final static re-fetch:** source blob `c0704a89fc832a9ff9ae05f22d3d1904d4130d4c`; test blob `661a5f32aa88af38c3e3e09c27608d6001c85929`; inventory blob `702a0b12d18fd6a14f5a07f2c8b2f71d32e27a22`; 9 declarations match inventory; total 1451.
+- **CI:** runs `45036779163` (postgres-atomicity) and `45036779042` (frontend/backend) on inventory commit `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3` failed before execution: runner_id 0, no steps. This is runner allocation failure, not test failure/pass. Node runtime remains NOT RUN; UA-084/085 pending.
+- **Vercel:** current main status reports `failure` with target `build-rate-limit`; no build/deployment acceptance claimed.
+- **PR #96:** still open/unmerged; storage migration fixes remain a release blocker.
+- **Safety:** no production DB, Prodamus, live payment, Storage mutation, Pinterest, DNS or deployment touched.
+- **Next:** owner runs UA-084/085; continue targeted financial/admin review and address the CI runner/quota blocker. Production cutover remains blocked.
