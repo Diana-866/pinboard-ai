@@ -198,6 +198,9 @@ test("every change of this session has a row, and every row points at a reason",
       }
     }
     if (byHash.has(hash)) continue;
+    // Коммит, меняющий только docs/, — это и есть запись: его причина видна в его же диффе.
+    // Без этого правила каждый такой коммит требовал бы следующего, и цепь не заканчивалась бы.
+    if (isDocs && commitFiles(hash).every((file) => file.startsWith("docs/"))) continue;
     // Коммит, названный в плане 14 дней, тоже имеет причину: план — единственный файл записей.
     if (new RegExp("`" + hash + "`").test(planText)) continue;
     // The newest commit cannot cite itself, so the record catches up on the next one.
