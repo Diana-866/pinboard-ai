@@ -1,6 +1,6 @@
 {
-  "files": 175,
-  "total": 1458,
+  "files": 176,
+  "total": 1469,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -29,7 +29,7 @@
     "api-authenticated-reads.test.js": 116,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
-    "auth.test.js": 20,
+    "auth.test.js": 21,
     "bearer-token.test.js": 3,
     "billing-security-contract.test.js": 11,
     "billing-webhook-audit.test.js": 11,
@@ -47,6 +47,7 @@
     "db-errors.test.js": 4,
     "db-migration-chain.test.js": 2,
     "demo-payment-guard.test.js": 1,
+    "deploy-assets-contract.test.js": 8,
     "dev-topup.test.js": 7,
     "documentation-integrity.test.js": 6,
     "email-locales.test.js": 4,
@@ -175,7 +176,7 @@
     "ui-url-contract.test.js": 3,
     "user-actions-reference.test.js": 3,
     "validate.test.js": 8,
-    "verify-script-migration-chain.test.js": 16,
+    "verify-script-migration-chain.test.js": 18,
     "worker-boot.test.js": 2
   }
 }

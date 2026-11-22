@@ -21,14 +21,14 @@
 
 ## Дни 3–4. Развёртывание
 
-- [ ] `deploy/Dockerfile.backend` — образ backend, non-root, healthcheck
-- [ ] `deploy/Dockerfile.worker` — образы воркеров (публикации, удаление аккаунтов) из того же кода
-- [ ] `deploy/docker-compose.yml` — backend + воркер публикаций + воркер удаления + Supabase
-- [ ] `deploy/Caddyfile` — HTTPS для `www.pinposy.com` и API-поддомена
-- [ ] Статический фронтенд: сборка `npm run build` в образ, раздача через Caddy
+- [~] `deploy/Dockerfile.backend` — образ backend, non-root, healthcheck (2026-11-23, SHA ниже; **не проверено:** сборка образа)
+- [~] Воркеры из того же образа, отдельные сервисы с командами `scheduleWorker.js` и `accountDeletionWorker.js` (2026-11-23; **не проверено:** запуск)
+- [~] `deploy/docker-compose.yml` — backend + воркер публикаций + воркер удаления + статика (2026-11-23; Supabase — отдельным self-hosted compose, **не проверено**)
+- [~] `deploy/Caddyfile` — HTTPS, `/api` → backend, SPA-fallback, HSTS (2026-11-23; **не проверено:** выдача сертификата)
+- [~] Статический фронтенд: `deploy/Dockerfile.web` собирает `npm run build`, Caddy раздаёт `/srv` (2026-11-23; **не проверено:** сборка)
 - [ ] Прогон миграций: `db/migrations/*.sql` по порядку, идемпотентно, с журналом
 - [ ] `GET /health` отвечает на сервере
-- [ ] Проверить, что воркер удаления аккаунтов действительно запускается в production (`accountDeletionWorkerGate`)
+- [~] Воркер удаления включён в production через `ACCOUNT_DELETION_WORKER_ENABLED: "true"` в compose (гейт требует ровно строку `true`, проверено тестом; **не проверено:** фактический запуск)
 
 ## Дни 5–9. Ручной прогон сценариев и Pinterest Trial
 
@@ -76,6 +76,6 @@ worker: удаление    →  Supabase
 
 ## Текущий статус
 
-- В репозитории **нет** ни одного файла развёртывания (`Dockerfile`, `docker-compose`, `Caddyfile`) — дни 3–4 начинаются с нуля.
+- Файлы развёртывания созданы (`deploy/`), но **ни один образ не собирался**: Docker на машине разработки отсутствует. Статус `[~]` — сделано, не проверено.
 - Бэкенд запускается как `node index.js`, воркеры — отдельными процессами (`npm run worker`, `npm run worker:account-deletion`).
 - Публикации в Pinterest Trial идут в песочницу. Реальный пин на реальной доске в Trial не появляется — это не обещание и не проверка.

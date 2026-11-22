@@ -1,0 +1,30 @@
+# Образ для backend и обоих воркеров: один код, разные команды запуска.
+# Собирать из корня репозитория: docker build -f deploy/Dockerfile.backend .
+FROM node:22-bookworm-slim
+
+# dumb-init нужен, чтобы SIGTERM доходил до node: backend обрабатывает его
+# и завершается штатно (index.shutdown_started -> index.shutdown_completed).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Зависимости ставятся отдельным слоем: код меняется чаще, чем lock-файл.
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY backend/ ./
+
+ENV NODE_ENV=production
+ENV PORT=3000
+EXPOSE 3000
+
+# Процесс не должен работать от root: код не пишет на диск, только читает .env из окружения.
+USER node
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "index.js"]

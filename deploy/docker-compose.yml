@@ -1,0 +1,76 @@
+# Стек приложения на одном VPS: backend, воркер публикаций, воркер удаления, статика.
+# Supabase разворачивается отдельно (официальный self-hosted compose) и доступен по внутренней сети.
+# Секреты берутся из deploy/.env — файл не коммитится.
+name: pinposy
+
+x-backend-common: &backend-common
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile.backend
+  image: pinposy-backend:local
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment:
+    NODE_ENV: production
+    # Воркеры внутри одного образа: явный opt-in, иначе пайплайн удаления молчит.
+    ACCOUNT_DELETION_WORKER_ENABLED: "true"
+  depends_on:
+    backend:
+      condition: service_healthy
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    image: pinposy-backend:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Публикации по расписанию: отдельный процесс, чтобы падение публикации не роняло API.
+  worker-publish:
+    <<: *backend-common
+    command: ["node", "scheduleWorker.js"]
+
+  # Удаление аккаунтов: отдельный процесс, чтобы тяжёлая чистка не занимала API.
+  worker-account-deletion:
+    <<: *backend-common
+    command: ["node", "accountDeletionWorker.js"]
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        # Фронтенд ходит на тот же домен через /api — CORS не нужен.
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:?set CADDY_DOMAIN in deploy/.env}
+      CADDY_EMAIL: ${CADDY_EMAIL:?set CADDY_EMAIL in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
