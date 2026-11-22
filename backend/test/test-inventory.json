@@ -1,6 +1,6 @@
 {
-  "files": 184,
-  "total": 1513,
+  "files": 185,
+  "total": 1516,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -153,6 +153,7 @@
     "schedule-cron.test.js": 4,
     "schedule-response.test.js": 4,
     "schedule-route-pagination-contract.test.js": 1,
+    "schedule-worker-start.test.js": 3,
     "schedule-worker.test.js": 17,
     "scheduler-worker-process.test.js": 4,
     "secrets-never-committed.test.js": 4,

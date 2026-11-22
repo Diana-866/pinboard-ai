@@ -22,7 +22,7 @@
 ## Дни 3–4. Развёртывание
 
 - [~] `deploy/Dockerfile.backend` — образ backend, non-root, healthcheck (2026-11-23, `bae65bda`; **не проверено:** сборка образа)
-- [~] Воркеры из того же образа, отдельные сервисы с командами `scheduleWorker.js` и `accountDeletionWorker.js` (2026-11-23, `bae65bda`; **не проверено:** запуск)
+- [~] Воркеры из того же образа, отдельные сервисы с командами `scheduleWorker.js` и `accountDeletionWorker.js` (2026-11-23, `bae65bda`). Оба запускаются локально и проверены: воркер удаления — `0c8e58f8`, воркер публикаций — SHA ниже (стучится на `/internal/pinterest/schedule/run` с секретом в заголовке, переживает отказ и живёт после первого опроса; **не проверено:** публикация в Pinterest и работа на сервере)
 - [~] `deploy/docker-compose.yml` — backend + воркер публикаций + воркер удаления + статика (2026-11-23, `bae65bda`; Supabase — отдельным self-hosted compose, **не проверено**)
 - [~] `deploy/Caddyfile` — HTTPS, `/api` → backend, SPA-fallback, HSTS (2026-11-23, `bae65bda`; **не проверено:** выдача сертификата)
 - [~] Статический фронтенд: `deploy/Dockerfile.web` собирает `npm run build`, Caddy раздаёт `/srv` (2026-11-23, `bae65bda`; **не проверено:** сборка)
