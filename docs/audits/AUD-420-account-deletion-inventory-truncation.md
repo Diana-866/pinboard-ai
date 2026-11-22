@@ -34,3 +34,14 @@ Run the focused inventory and test-inventory checks plus the full backend suite 
 - At that commit, the inventory was 1,457 declarations and the deletion inventory test file had 12 declarations.
 - Later AUD-421 adds one separate admin-access regression; current main inventory is 1,458.
 - Runtime, admin UI compatibility and deployment remain NOT RUN; owner acceptance is still required.
+
+
+## Admin UI integration receipt — AUD-422 (2026-11-22)
+
+The truncation flag is now consumed by a read-only admin panel rather than being an unused backend field:
+
+- Added `frontend/src/components/admin/AdminAccountDeletionInventory.tsx` (final blob `f975dee8970e959aefa247f0e95e5067407afe92`) and the AdminPanel tab (blob `e4769e2719c96e1e3c3e3143eae77eebcbb0c1e9`).
+- The panel explicitly warns that the queue is partial when `requiring_attention_truncated=true`, validates its payload and clears stale data on refresh failure.
+- Frontend contract test blob `b447525bf0c2cf28c75fb759819b87a2b8433590` checks the endpoint, tab, truncation warning and no POST; the configured frontend test glob includes this test.
+- Static checks passed. Frontend test and TypeScript/Vite build remain NOT RUN; UA-090 is the owner acceptance gate.
+- The earlier UI compatibility task is now implemented in code; release still requires UA-088 backend tests and UA-090 frontend tests/build.
