@@ -22,5 +22,8 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.4.0",
     "nodemailer": "^10.1.7"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1175.0"
   }
 }

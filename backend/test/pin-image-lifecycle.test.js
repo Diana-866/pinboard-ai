@@ -70,6 +70,31 @@ test("rejects another host, bucket, or Supabase project", () => {
   assert.equal(extractManagedPinImagePath("https://other.supabase.co/storage/v1/object/public/pin-images/pins/1730000000000-ab12cd34.webp", base), null);
 });
 
+test("a migrated public base is recognised for deletion, old and new links alike", () => {
+  // extractManagedPinImagePath знает только адрес Supabase. После переезда ссылки строятся
+  // от CDN или S3, поэтому удаление должно узнавать свой объект по новому префиксу —
+  // иначе перенесённые картинки станут неудаляемыми, а новые будут считаться «чужими».
+  const { extractManagedPinImagePathFromBase } = require("../pinImageLifecycle");
+  const cdnWithBucket = "https://cdn.pinposy.com/pin-images";
+  const cdnBare = "https://cdn.pinposy.com";
+  const name = "pins/1700000000000-ab12cd34.webp";
+
+  assert.equal(extractManagedPinImagePathFromBase(`${cdnWithBucket}/${name}`, cdnWithBucket), name);
+  assert.equal(extractManagedPinImagePathFromBase(`${cdnBare}/pin-images/${name}`, cdnBare), name);
+  assert.equal(
+    extractManagedPinImagePathFromBase(`https://evil.example/pin-images/${name}`, cdnWithBucket),
+    null,
+    "чужой хост не наш"
+  );
+  assert.equal(
+    extractManagedPinImagePathFromBase(`${cdnWithBucket}/avatars/user.png`, cdnWithBucket),
+    null,
+    "чужое имя объекта не наше"
+  );
+  assert.equal(extractManagedPinImagePathFromBase("", cdnWithBucket), null);
+});
+
+
 test("rejects paths outside the generated pin object naming scheme", () => {
   assert.equal(extractManagedPinImagePath("https://project.supabase.co/storage/v1/object/public/pin-images/avatars/user.png", base), null);
   assert.equal(extractManagedPinImagePath("https://project.supabase.co/storage/v1/object/public/pin-images/pins/../../secrets.png", base), null);

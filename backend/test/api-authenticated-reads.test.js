@@ -8,6 +8,7 @@ process.env.GPTUNNEL_API_KEY = "gpt_8f3a9c2b7d1e5a6f";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
+const { reservePort } = require("./helpers/free-port");
 const path = require("node:path");
 const http = require("node:http");
 const { startFakePostgrest } = require("./helpers/fake-postgrest");
@@ -55,7 +56,7 @@ function activatePaidPlan(backend, { credits = 500, plan = "pro" } = {}) {
 async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
   const db = startFakePostgrest();
   const dbUrl = await db.listen();
-  const port = 36000 + Math.floor(Math.random() * 2000);
+  let port = await reservePort();
 
   // supabase-js uses one path per table, so a route must look at the query to tell the profile
   // read, the token-version read and the entitlement read apart.
@@ -135,41 +136,52 @@ async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
   db.table("POST", "projects", ({ body }) => ({ status: 201, body: [{ id: PROJECT_ID, ...JSON.parse(body || "{}") }] }));
   db.table("POST", "boards", ({ body }) => ({ status: 201, body: [{ id: BOARD_ID, ...JSON.parse(body || "{}") }] }));
 
-  const child = spawn(process.execPath, [ENTRY], {
-    cwd: BACKEND,
-    env: {
-      ...process.env,
-      NODE_ENV: "test",
-      PORT: String(port),
-      SUPABASE_URL: dbUrl,
-      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
-      SUPABASE_ANON_KEY: "test-anon-key",
-      JWT_SECRET: SECRET,
-      FRONTEND_URL: "https://app.example.com",
-      ACCOUNT_DELETION_WORKER_ENABLED: "",
-      ...extraEnv,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  // A freshly reserved port can still be taken between close() and the child's bind, so a failed
+  // start is retried on a new port instead of failing the test. Three attempts make a collision
+  // practically impossible while keeping a real startup crash visible in the error text.
+  let child = null;
   let output = "";
-  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
-
-  const base = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 20_000;
+  let base = "";
   let ready = false;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) break;
-    try {
-      const response = await fetch(`${base}/health`);
-      if (response.ok) { ready = true; break; }
-    } catch {
-      // not listening yet
+  for (let attempt = 0; attempt < 3 && !ready; attempt += 1) {
+    child = spawn(process.execPath, [ENTRY], {
+      cwd: BACKEND,
+      env: {
+        ...process.env,
+        NODE_ENV: "test",
+        PORT: String(port),
+        SUPABASE_URL: dbUrl,
+        SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+        SUPABASE_ANON_KEY: "test-anon-key",
+        JWT_SECRET: SECRET,
+        FRONTEND_URL: "https://app.example.com",
+        ACCOUNT_DELETION_WORKER_ENABLED: "",
+        ...extraEnv,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    output = "";
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+
+    base = `http://127.0.0.1:${port}`;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) break;
+      try {
+        const response = await fetch(`${base}/health`);
+        if (response.ok) { ready = true; break; }
+      } catch {
+        // not listening yet
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!ready) {
+      child.kill("SIGKILL");
+      port = await reservePort();
+    }
   }
   if (!ready) {
-    child.kill("SIGKILL");
     await db.close();
     throw new Error(`backend did not start:\n${output}`);
   }
