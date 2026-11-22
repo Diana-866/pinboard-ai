@@ -94,13 +94,20 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage,
       throw httpError(503, "Не удалось создать аккаунт — попробуйте позже");
     }
 
-    // Согласие требуется всегда, но запись отметки деградирует, пока миграция 166 не применена:
-    // регистрация не должна ломаться из-за отсутствующей колонки.
-    if (/terms_accepted_at/i.test(result.error.message || "")) logWarning("auth.consent_not_persisted");
+    // Consent is a required legal record, not an optional profile field. If migration 166
+    // is missing, fail before creating an account; never silently discard the timestamp.
+    if (/\bterms_accepted_at\b/i.test(result.error.message || "")) {
+      logError("auth.event_003");
+      throw httpError(503, "Регистрация временно недоступна — попробуйте позже");
+    }
+
+    // Older deployments may lack non-legal profile columns. Retry once without those fields,
+    // but preserve the server-generated consent timestamp on every successful insert.
     result = await insertUser({
       email,
       password_hash: passwordHash,
       credits_balance: 0,
+      terms_accepted_at: profile.terms_accepted_at,
     });
     if (result.error) {
       if (result.error.code === "23505") {
