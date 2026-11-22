@@ -2307,3 +2307,10 @@ Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b
 | AUD-415 | `docs/audits/AUD-415-admin-financial-reservation-truncation.md` | Financial admin queue bug: truncation flag was calculated after slicing; fix/test/inventory commits and runtime limitation recorded. |
 
 | AUD-416 | `docs/audits/AUD-416-scoped-generation-task-truncation.md` | Scopes task-journal truncation to affected request batches; regression and runtime limitation recorded. |
+
+## Latest synchronization — AUD-415/AUD-416 (2026-11-22)
+
+- Main HEAD before this documentation closeout: `91b86236af1c3ee5027cb0d7ea46169c6b350385`.
+- Required state/action documents contain AUD-415/AUD-416 and UA-084/UA-085.
+- Current runtime limitation: CI runner allocation failed before steps; Node runtime NOT RUN. Vercel reports build-rate-limit failure.
+- The audit reports describe source/test/inventory blobs and commit SHAs; current code/test inventory totals 1,451 declarations.
