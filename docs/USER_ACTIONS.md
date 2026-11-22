@@ -4103,3 +4103,10 @@ npm.cmd test
   ```
 - **Acceptance:** frontend test suite exits 0; TypeScript/Vite build exits 0; `adminPanelDataSafety.test.ts` confirms the admin tab, GET inventory endpoint, explicit truncation warning and read-only behavior. Confirm the page renders an incomplete list warning for `requiring_attention_truncated=true` and clears stale rows after a failed refresh.
 - Report exact HEAD, commands, test/build summaries and exit codes. Do not use production account deletion or deploy from this test step.
+
+
+### UA-088/089/090 — latest CI and deployment receipt (2026-11-22)
+
+- Latest Actions runs on the AUD-422 UI commits: `45038989318` (`postgres-atomicity`), `45038989321` (`frontend` and `backend`), `45038985828`, and `45038985913` all failed before execution. Jobs have `runner_id=0` and empty `steps`; no tests/build/SQL ran. Do not treat these as code failures or passes.
+- Vercel status on main HEAD `2b13f46b882c372a906cb44c809169083d2bc47b`: `failure`, `build-rate-limit`, “Deployment rate limited — retry in 24 hours.”
+- UA-088 backend deletion tests, UA-089 admin auth tests and UA-090 frontend tests/build remain pending owner/local evidence. No further runner retry until allocation is available.
