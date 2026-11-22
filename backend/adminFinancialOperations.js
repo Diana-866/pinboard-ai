@@ -2,7 +2,7 @@ const supabase = require("./supabase");
 const { readArrayQueryResult } = require("./fetchAllPages");
 const { httpError } = require("./validate");
 
-const MAX_MATCH_QUERY_ROWS = 1000;
+const MAX_MATCH_QUERY_ROWS = 999;
 const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
 
 function clampInteger(value, fallback, min, max) {
@@ -149,8 +149,8 @@ async function getFinancialOperationsQueue(options = {}) {
     const regenerationMatchRows = readArrayQueryResult(regenerationMatches);
     // The REST layer can silently cap a response. More than this bound is unsafe for
     // reconciliation: a hidden duplicate could turn an ambiguous match into a single match.
-    if (generationMatchRows.length > MAX_MATCH_QUERY_ROWS ||
-        regenerationMatchRows.length > MAX_MATCH_QUERY_ROWS) {
+    if (generationMatchRows.length >= MATCH_QUERY_LIMIT ||
+        regenerationMatchRows.length >= MATCH_QUERY_LIMIT) {
       throw httpError(502, "Слишком много совпадений для безопасной сверки. Требуется ручная проверка.");
     }
     reservationRequestRows = [
