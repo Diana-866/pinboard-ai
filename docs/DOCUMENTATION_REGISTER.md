@@ -2,7 +2,8 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test/workflow change commit (runtime verification pending):** 48c3b2c0a56dd73412d0a39720ca853416c7b49f  
+**Latest code/test change commit (runtime verification pending):** `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd`  
+**Documentation closeout commit:** `b32597409054ce2b2fedc7732369a81b2edb21d5`  
 **Inventory refreshed:** 2026-11-18 (supplemental receipt journal entries appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
 
@@ -2076,3 +2077,7 @@ Node tests were not executed in this connector-only session. Do not infer CI PAS
 - `docs/USER_ACTIONS.md` current blob: `03b68b5bbfe6f4a4971b93fcbc50db1a2cb6bf8a` (UA-075).
 - Audit report current blob: `e7cda489a3b267e29941633291f11c024c42169b`.
 - `main` ref before the atomic documentation closeout: `6d0998afc4faabddca16ee134fa52fbf36b299f7`. Node tests are NOT VERIFIED; Actions did not start any steps.
+
+
+- Final ref verification before this register update: `b32597409054ce2b2fedc7732369a81b2edb21d5`; this atomic documentation update advances `main` once and contains the current state/register blobs.
+- Current `docs/PROJECT_STATE.md` blob in this commit: `7c6fbdfef580ebcae80cde5d9cbf29c10f873def`.

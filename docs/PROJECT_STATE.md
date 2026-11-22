@@ -3980,3 +3980,6 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Confirmed from GitHub:** main code and test file blobs were re-fetched after publication; compare against base showed only intended source, regression test and documentation changes. Node tests and Docker build remain NOT RUN here.
 - **Owner gate:** UA-075. Verify migration 166 in the intended Supabase project; no production DB was accessed.
 - **Next independent task:** reconcile PR #96 with main, remove/complete the incomplete storage cutover safely, then get a real runner to execute the full backend/frontend/SQL gates. Live SMTP, GPTunnel generation, Prodamus payment and Pinterest publish remain unverified.
+
+
+- **Documentation closeout commit:** `b32597409054ce2b2fedc7732369a81b2edb21d5` (state/register/audit synchronized in one commit). Final GitHub ref is checked after this closeout.
