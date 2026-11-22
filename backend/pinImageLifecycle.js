@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { readArrayQueryResult } = require("./fetchAllPages");
 
 const EXPECTED_PIN_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
@@ -136,14 +137,13 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
 }
 
 async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
-  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+  const staleUploads = readArrayQueryResult(await supabase.rpc("list_stale_pin_image_uploads", {
     p_older_than_seconds: olderThanSeconds,
     p_limit: limit,
-  });
-  if (inventoryError) throw inventoryError;
+  }));
 
   const result = { inspected: 0, quarantined: 0, skipped: 0, failed: 0, items: [] };
-  for (const row of staleUploads || []) {
+  for (const row of staleUploads) {
     result.inspected += 1;
     const item = {
       object_path: typeof row.object_path === "string" ? row.object_path : null,
@@ -176,11 +176,10 @@ async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900
 }
 
 async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
-  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+  const staleUploads = readArrayQueryResult(await supabase.rpc("list_stale_pin_image_uploads", {
     p_older_than_seconds: olderThanSeconds,
     p_limit: limit,
-  });
-  if (inventoryError) throw inventoryError;
+  }));
 
   // This endpoint is deliberately observational. Even if the object is
   // visible, Storage listing cannot prove that an older in-flight upsert has
@@ -188,7 +187,7 @@ async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900,
   // still overwrite it. Only an operator with independent evidence that the
   // original request/process is terminated may resolve the reservation.
   const result = { inspected: 0, objectVisible: 0, objectMissing: 0, unresolved: [] };
-  for (const row of staleUploads || []) {
+  for (const row of staleUploads) {
     result.inspected += 1;
     const metadata = {
       object_path: typeof row.object_path === "string" ? row.object_path : null,
