@@ -4270,3 +4270,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **PR #96:** still open/unmerged; storage migration fixes remain a release blocker.
 - **Safety:** no production DB, Prodamus, live payment, Storage mutation, Pinterest, DNS or deployment touched.
 - **Next:** owner runs UA-084/085; continue targeted financial/admin review and address the CI runner/quota blocker. Production cutover remains blocked.
+
+
+### 2026-11-22 — Payment-creation queue truncation visibility (AUD-417)
+
+- **Finding:** admin payment-creation inventory returned exactly the requested limit without indicating whether additional unresolved `unknown`/`creating` requests were hidden. Operators could mistake a bounded prefix for the complete queue.
+- **Fix:** fetch `limit + 1` (max 101), return only `limit` rows and expose `truncated` based on the sentinel row. Count and payload remain bounded.
+- **Regression:** query mock now applies the requested limit; new limit=1 test checks sentinel fetch, one-row response and `truncated=true`.
+- **Commits:** source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; test `ff5d92c32a5bde0d797b5984b58ebc6650e83fce`; inventory `7d8d946e3658569cbae75746ea95491c4b220300`; audit `8b69e1468136cd6e10bd54e2b53073767652d7b7`.
+- **Static verification:** re-fetched source/test/inventory; 13 declarations in payment creation tests, inventory total 1452. Node runtime NOT RUN; UA-086 pending. No production/provider actions.
+- **Next:** owner executes UA-086; continue adjacent read-only reconciliation review. PR #96 storage migration and runtime/CI acceptance remain release blockers.
