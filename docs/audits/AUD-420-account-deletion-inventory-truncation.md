@@ -25,3 +25,12 @@ The deletion inventory limited the attention-job query to the requested count bu
 ## Owner acceptance
 
 Run the focused inventory and test-inventory checks plus the full backend suite on the published main commit. Confirm the admin UI handles the additive `requiring_attention_truncated` field and does not represent a truncated list as complete.
+
+
+## Publication receipt (2026-11-22)
+
+- Commit containing the AUD-420 implementation, regression and inventory update: `ed5bceab60ec39e6bf8f098566996306d04f846d`.
+- Blob SHAs at that commit: source `0b973f6f956a064e9693ad62497de0100abe283c`; test `8c8ea7216960c1a788d296efb580eb2d5c93a88f`; inventory `afb9a0366ce06555882c22ed7e5bdbf84400f9ce`; audit `2fbbf27871ae612f19eb83ca9a620461714fcd41`.
+- At that commit, the inventory was 1,457 declarations and the deletion inventory test file had 12 declarations.
+- Later AUD-421 adds one separate admin-access regression; current main inventory is 1,458.
+- Runtime, admin UI compatibility and deployment remain NOT RUN; owner acceptance is still required.
