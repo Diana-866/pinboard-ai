@@ -2241,3 +2241,14 @@ Commits: financial implementation `0958b429a9d559ee621dea48c6360afe7b2c4251`; fi
 - `docs/USER_ACTIONS.md` UA-082 records owner-only Vercel account/commit identity repair and real runner execution. PR #96 Vercel comment `7076491432` reports unverified commit author for `bc3271dcf49b9a093974f03705eeb8a04149abc8`; latest checked main Vercel status is pending. Main Actions jobs still report runner `0`, no steps; runtime acceptance remains blocked.
 - Do not merge PR #96 or enable `PIN_IMAGE_PUBLIC_BASE_URL` for a target S3/CDN until all migration paths and tests are complete. No production migration was performed.
 
+### AUD-413 — payment-creation reconciliation malformed reads fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/adminPaymentCreationRequests.js` | `fc5b15c820b672ebf34f7e7bbdef4438abc32f04` | Strict validation for request, subscription and credit-purchase query arrays |
+| `backend/test/admin-payment-creation-requests.test.js` | `a8797af161bfa6350f3f33de922c4f0464121baa` | Malformed `null` result regression at all three query stages |
+| `backend/test/test-inventory.json` | `a9686d81cd4c7ec8277b024e668459a66b0b9657` | Inventory 1448 declarations |
+| `docs/audits/2026-11-22-payment-creation-reconciliation-malformed-reads.md` | created in commit `14a5601bfe6f8f1e1a40bd89617265263d1960d7` | Root cause, fix and verification boundary |
+
+Commits: source `866a82064770f545c2444cc510cf513c0a6f5c5e`; regression `188a2e95daf9bfd6369f2f1b6671abae6b2c221b`; inventory `82e84cfed96c1b685ec18614489a5428957ea445`; state `b540153ba55a31ad03f9a6e0869762da838c8911`; owner action `222fc0e49acbbaa372785784926a4dfba34ad922`. Runtime NOT RUN; UA-081 includes focused/full test suite.
+
