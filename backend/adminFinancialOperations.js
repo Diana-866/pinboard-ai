@@ -2,8 +2,8 @@ const supabase = require("./supabase");
 const { readArrayQueryResult } = require("./fetchAllPages");
 const { httpError } = require("./validate");
 
-const MAX_MATCH_QUERY_ROWS = 999;
-const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
+// 1,000 is the REST cap; treat a full response as potentially truncated.
+const MATCH_QUERY_LIMIT = 1000;
 
 function clampInteger(value, fallback, min, max) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
