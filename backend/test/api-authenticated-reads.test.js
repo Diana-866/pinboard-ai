@@ -3474,6 +3474,25 @@ test("the storage maintenance routes are administrator-only and touch nothing fo
   }
 });
 
+test("credit purchase history rejects a malformed successful database response", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "credit_purchases", { status: 200, body: null });
+
+    const answer = await backend.get("/billing/credit-purchases");
+
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(answer.body.purchases, undefined);
+    assert.equal(
+      backend.db.requests.some((entry) => entry.path.includes("get_credit_balance")),
+      false,
+      "a malformed purchase history must stop before deriving the account balance"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
 test("the retention inventory is read-only and clamps absurd windows", async () => {
   const backend = await startBackend();
   try {
