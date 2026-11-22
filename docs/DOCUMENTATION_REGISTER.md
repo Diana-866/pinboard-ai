@@ -2384,3 +2384,37 @@ Commits: source `07acd29fdcf0a9b6de493ac57185f286bc325670`; regression `8f82af51
 - Source/test/inventory re-fetched; strict array checks and regression present; 10 declarations match inventory; total 1,455.
 - Runtime tests NOT RUN; UA-088 pending. No production account deletion or external mutation.
 - Actions runner and Vercel quota blockers from AUD-418 remain until independently resolved.
+
+
+### AUD-420 — account-deletion inventory truncation and row validation (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `backend/adminAccountDeletionInventory.js` | `0b973f6f956a064e9693ad62497de0100abe283c` | Bounded sentinel query, truncation indicator and strict operational row validation |
+| `backend/test/admin-account-deletion-inventory.test.js` | `8c8ea7216960c1a788d296efb580eb2d5c93a88f` | 12 declarations including sentinel and malformed-row regressions |
+| `backend/test/test-inventory.json` | `afb9a0366ce06555882c22ed7e5bdbf84400f9ce` | 1,457 declarations at AUD-420 commit |
+| `docs/audits/AUD-420-account-deletion-inventory-truncation.md` | `c3199bea90d581a24bf6dae94d7c88234a669801` | Root cause and publication receipt |
+
+Implementation commit `ed5bceab60ec39e6bf8f098566996306d04f846d`; audit receipt update `44423470fcb9f1add8a7fc371951f46ab26eb8b5`. Runtime and admin UI acceptance pending UA-088.
+
+### AUD-421 — admin authorization DB error mapping (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `backend/admin.js` | `a4526e9d65ecc5e11bc1cbde9566b222265a9367` | Distinguishes missing/non-admin 403 from database/malformed-result 503 |
+| `backend/test/admin-access.test.js` | `04548a27fa58a7fed6928f04ca0be6d22d2a65ea` | 4 declarations; tests DB outage, missing user and malformed success |
+| `backend/test/test-inventory.json` | `3a5ff864da3257780ebabccf0be215bf7e5dd692` | Current total 1,458; admin-access count 4 |
+| `docs/audits/AUD-421-admin-auth-database-error-mapping.md` | `0df8245116153dce3a239f079253bdfcbe1549dd` | Root cause, safe response contract and runtime boundary |
+
+Commits: source `4b144881c7c448edc0477a12c407f5dc58472b60`; regression `f3cc3a3310b5136b14ae2e2b41f9ca495c481474`; inventory `ea8ed10b7899567544046ade45ed16cbf76b4bb5`; audit `dfe751db527e612f7176d67879b828a2d47db298`; UA-089 `af92eae1e3b5baeda827eb55e4e4fb715b696ac0`; state `3394b4b108da306bb3e68a5def0f2e7aff4cc4aa`.
+
+### AUD-419 cumulative inventory note
+
+AUD-419's initial commit recorded 10 declarations / 1,455 total. AUD-420 subsequently added two deletion inventory declarations; AUD-421 added one admin-access declaration. Current main: 1,458 total, deletion inventory test 12, admin-access test 4. Updated reports: AUD-419 `c89f5024c1a56f251e42a2a5fc6c299a6d0f583f`; AUD-420 `c3199bea90d581a24bf6dae94d7c88234a669801`.
+
+## Final synchronization — AUD-420/AUD-421 (2026-11-22)
+
+- Main HEAD before this register update: `3394b4b108da306bb3e68a5def0f2e7aff4cc4aa`.
+- Re-fetched all source/test/inventory/report files; declaration counts match inventory 1,458.
+- Runtime tests NOT RUN; UA-088 and UA-089 pending. Actions runner failure before steps is not test evidence; Vercel quota remains a deployment blocker.
+- No production account deletion, DB, provider, payment, storage, DNS or deployment actions performed.
