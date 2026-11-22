@@ -2081,3 +2081,14 @@ Node tests were not executed in this connector-only session. Do not infer CI PAS
 
 - Final ref verification before this register update: `b32597409054ce2b2fedc7732369a81b2edb21d5`; this atomic documentation update advances `main` once and contains the current state/register blobs.
 - Current `docs/PROJECT_STATE.md` blob in this commit: `7c6fbdfef580ebcae80cde5d9cbf29c10f873def`.
+
+### AUD-403 — truthful verification-email status (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/auth.js` | recorded in atomic commit below | Message now reflects actual email send result; no change to registration semantics |
+| `backend/test/auth.test.js` | recorded in atomic commit below | Regression forbids claiming email sent when `verificationEmailSent=false` |
+| `docs/audits/2026-11-22-registration-email-status-honesty.md` | recorded in atomic commit below | Root cause, fix, PR #96 reconciliation and verification boundary |
+
+Code base `b32597409054ce2b2fedc7732369a81b2edb21d5`; documentation-only main HEAD before publication `d9ad180640636783c2591909ba63540c0aaea1f9`. Runtime Node tests NOT RUN; GitHub Actions runner allocation has zero steps. PR #96 remains open/unmerged; its storage base URL flag must not be enabled before actual provider operations are migrated. Owner actions UA-075 and UA-076 remain open.
+

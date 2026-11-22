@@ -168,6 +168,8 @@ test("a missing verification email does not fail the registration", async () => 
   const result = await register("quiet@example.test", "StrongPass123", "", "", "en", true);
   assert.equal(result.ok, true);
   assert.equal(result.verificationEmailSent, false);
+  assert.match(result.message, /не удалось|не отправлено/i, "the API must not claim a verification email was sent");
+  assert.doesNotMatch(result.message, /Мы отправили письмо/i);
 });
 
 test("login returns a session for a verified account", async () => {

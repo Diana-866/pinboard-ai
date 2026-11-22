@@ -3780,3 +3780,30 @@ where table_schema = 'public'
 Не присылайте пароль, service-role key, JWT или другие секреты. Достаточно сообщить, что запрос вернул 1 строку. Если миграция уже применена — повторный запуск безопасен; подтвердите только результат проверки.
 
 **Статус:** ОЖИДАЕТСЯ подтверждение владельца. Production-схема из этой сессии не проверялась.
+
+### Журнал ассистента — 2026-11-22 (AUD-403, PR #96 reconciliation)
+
+| Действие | Результат | Ограничение / следующий шаг |
+|---|---|---|
+| Проверил текущий `main`, HEAD `b32597409054ce2b2fedc7732369a81b2edb21d5`, последние commits и три обязательных документа | Подтверждён предыдущий closeout; next step — PR #96 review | Не использовал старый SHA как текущий |
+| Повторно прочитал PR #96, список изменённых файлов, comments и CI runs | PR open, head `bc3271dcf49b9a093974f03705eeb8a04149abc8`; consent fallback и storage URL/provider mismatch остаются рисками | PR не объединял; deployment не запускал |
+| Проверил `backend/auth.js` и `backend/test/auth.test.js` в main | Найдена ложная доставка письма: `verificationEmailSent=false`, но message говорит «отправили» | Исправить сообщение и закрепить регрессионным тестом |
+| Подготовил source/test patch и AUD-403 | Условный текст по фактическому результату `sent`; test asserts truthful failure wording | Node tests не запускались; runtime PASS не заявлять |
+| Проверил ограничения среды | Actions `runner_id=0`, `steps=[]`; Vercel PR blocked by author-account verification | Нужен локальный запуск или рабочий CI runner; production не трогать |
+
+### UA-076 — выполнить backend regression suite при недоступном GitHub runner
+
+**Зачем:** AUD-403 меняет текст ответа регистрации и усиливает тест; в текущей среде GitHub Actions не запускает ни одного шага, поэтому runtime результат отсутствует.
+
+**Выполнить в локальном checkout после получения актуального main:**
+
+```powershell
+git pull origin main
+cd backend
+npm.cmd test
+```
+
+**Ожидаемый результат:** весь backend suite завершается с exit code 0; тест `a missing verification email does not fail the registration` проходит. Если команда падает, пришлите только имя теста и текст ошибки без секретов.
+
+**Статус:** ожидается. Не запускать production SQL и не использовать production credentials для тестов.
+

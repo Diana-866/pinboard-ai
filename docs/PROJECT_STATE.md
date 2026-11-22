@@ -3983,3 +3983,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 
 
 - **Documentation closeout commit:** `b32597409054ce2b2fedc7732369a81b2edb21d5` (state/register/audit synchronized in one commit). Final GitHub ref is checked after this closeout.
+
+### 2026-11-22 — Исправлена ложная формулировка о доставке письма (AUD-403)
+
+- **Кодовая база:** `b32597409054ce2b2fedc7732369a81b2edb21d5`; перед публикацией main имел документационный HEAD `d9ad180640636783c2591909ba63540c0aaea1f9`.
+- **Дефект:** `register()` возвращал `verificationEmailSent: false`, но безусловное поле `message` утверждало, что письмо отправлено. При отключённом/неработающем SMTP это направляло пользователя проверять пустой ящик.
+- **Исправление:** `backend/auth.js` — сообщение теперь зависит от результата `sent`; успешный текст сохранён, неуспешный честно сообщает об ошибке отправки и предлагает запросить письмо повторно. Регистрация и API-контракт не меняются.
+- **Регрессия:** `backend/test/auth.test.js` — тест неуспешной отправки требует честный текст и запрещает успешное обещание.
+- **Проверка:** точечный diff подготовлен на основе текущих GitHub blobs; Node runtime тесты в этой среде не запускались. CI runner по-прежнему не исполняет шаги; не считать тест PASS.
+- **PR #96:** head `bc3271dcf49b9a093974f03705eeb8a04149abc8`, остаётся open/unmerged. Auth fallback должен сохранять fail-closed consent из main. `PIN_IMAGE_PUBLIC_BASE_URL` не меняет provider upload/delete: обе операции остаются в Supabase Storage; не включать до полного provider cutover и проверок.
+- **Владелец:** UA-075 (migration 166) остаётся открытым; UA-076 — выполнить backend tests локально, если CI runner недоступен.
+- **Безопасность:** production DB/data, SMTP, платежи, Pinterest, DNS и deployment не затрагивались.
+- **Следующий шаг:** проверить опубликованный diff и commit SHA; продолжить безопасное извлечение/согласование только тех частей PR #96, которые не меняют storage provider и не регрессируют consent.
