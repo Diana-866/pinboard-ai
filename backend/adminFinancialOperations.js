@@ -108,13 +108,17 @@ async function getFinancialOperationsQueue(options = {}) {
     for (let offset = 0; offset < generationIds.length; offset += 50) {
       batches.push(generationIds.slice(offset, offset + 50));
     }
-    const taskResults = await Promise.all(batches.map((batch) =>
-      supabase.from("pin_generation_tasks")
+    // Батч возвращается вместе со своим результатом: раньше `batch` оставался переменной
+    // обработчика `map`, и обращение к нему ниже падало с `ReferenceError` ровно тогда, когда
+    // батч приходил полным, — то есть при любой живой очереди, а не в пустой базе.
+    const taskResults = await Promise.all(batches.map(async (batch) => ({
+      batch,
+      result: await supabase.from("pin_generation_tasks")
         .select("generation_request_id,status,provider_outcome_status,provider_refunded,provider_reconciled_at")
         .in("generation_request_id", batch)
-        .limit(TASK_FETCH_LIMIT)
-    ));
-    for (const result of taskResults) {
+        .limit(TASK_FETCH_LIMIT),
+    })));
+    for (const { batch, result } of taskResults) {
       const rows = readArrayQueryResult(result);
       // A full batch is the REST cap, not proof that the journal ended there.
       if (rows.length >= TASK_FETCH_LIMIT) {
