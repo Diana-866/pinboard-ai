@@ -2326,3 +2326,11 @@ Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b
 | `docs/audits/AUD-417-payment-creation-queue-truncation.md` | created in `8b69e1468136cd6e10bd54e2b53073767652d7b7` | Root cause, fix, static checks and runtime boundary |
 
 Commits: source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; regression `ff5d92c32a5bde0d797b5984b58ebc6650e83fce`; inventory `7d8d946e3658569cbae75746ea95491c4b220300`; audit `8b69e1468136cd6e10bd54e2b53073767652d7b7`. Runtime tests NOT RUN; UA-086 pending.
+
+
+## Final synchronization — AUD-417 (2026-11-22)
+
+- Verified main HEAD before this register update: `fa9db9715397fbb49a6e5e138d9d91b3706816ac` (PROJECT_STATE closeout commit).
+- AUD-417 source/test/inventory/audit re-fetched from main; blobs: `acbbcc216a9f13de622aa5f0e6fbb9611b35ddf5`, `67ff4e34cce94330ce3b1fd2c8feeee7b7eee71d`, `e57af213de55079d5a7a3d54a8b25edb6f3a001d`, `f755a6c48f7c53e9b6e4512bf7fe5021db437efd`.
+- 13 test declarations match inventory; total 1452. Runtime remains NOT RUN; UA-086 pending.
+- Vercel build-rate-limit is an account/quota blocker, not a build result. PR #96 storage gate and PostgreSQL/runtime acceptance remain open.
