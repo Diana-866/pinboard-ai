@@ -53,7 +53,7 @@ function isInventory(value: any): value is Inventory {
   return value.requiring_attention.every((job: any) =>
     job && typeof job === 'object' && !Array.isArray(job) &&
     typeof job.job_id === 'string' && typeof job.request_id === 'string' &&
-    typeof job.step_key === 'string' && Object.hasOwn(JOB_STATUS_LABEL, job.status) &&
+    typeof job.step_key === 'string' && typeof job.status === 'string' && Object.keys(JOB_STATUS_LABEL).includes(job.status) &&
     isCount(job.attempts) &&
     (job.error_code === null || typeof job.error_code === 'string') &&
     (job.next_attempt_at === null || (typeof job.next_attempt_at === 'string' && Number.isFinite(Date.parse(job.next_attempt_at)))) &&
@@ -88,6 +88,7 @@ export const AdminAccountDeletionInventory: React.FC = () => {
       if (!isInventory(result)) throw new Error('Сервер вернул некорректную очередь удаления аккаунтов.');
       setData(result);
     } catch (e) {
+      setData(null);
       setError(e instanceof Error ? e.message : 'Не удалось загрузить очередь удаления аккаунтов');
     } finally {
       setLoading(false);
