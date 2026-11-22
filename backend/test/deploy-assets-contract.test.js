@@ -88,3 +88,28 @@ test("secrets are excluded from the build context", () => {
     assert.match(text, /\*\*\/node_modules/);
   }
 });
+
+test("the local migration verification drives a throwaway cluster only", () => {
+  const script = read("deploy/verify-migrations-local.sh");
+  assert.match(script, /initdb -D "\$DATA_DIR"/, "a temporary cluster is required");
+  assert.match(script, /-A trust/, "the throwaway cluster must not ask for a password");
+  assert.match(script, /trap cleanup EXIT/, "the cluster must be removed even on failure");
+  assert.match(script, /create role service_role/, "Supabase roles are needed for policies and grants");
+  assert.match(script, /apply-migrations\.cjs/, "the verification must run the real runner");
+  assert.match(script, /0 applied/, "idempotency must be checked, not assumed");
+  // Проверка без падения — это печать, а не проверка: ветка провала обязана вернуть код 1.
+  // Проверка без падения — это печать, а не проверка: после сообщения о провале
+  // скрипт обязан завершиться кодом 1.
+  // Строка провала ищется целиком: `indexOf("exit 1")` после неё находил бы любой
+  // следующий выход с кодом 1 и подтверждал бы то, чего в этой ветке нет.
+  const failureLine = script
+    .split(String.fromCharCode(10))
+    .find((line) => line.includes("second run applied something again"));
+  assert.ok(failureLine, "the idempotency failure branch must exist");
+  assert.ok(failureLine.includes("exit 1"), "a failed idempotency check must exit non-zero");
+  // Скрипт не должен ссылаться на боевые адреса или файлы окружения.
+  // Никакого чтения окружения и никаких боевых адресов в этом скрипте.
+  assert.equal(script.includes(".env"), false, "the verification must not read .env");
+  assert.doesNotMatch(script, /source\s+\S*env/, "the verification must not source an env file");
+  assert.doesNotMatch(script, /onrender\.com|supabase\.co/, "no remote database may appear here");
+});
