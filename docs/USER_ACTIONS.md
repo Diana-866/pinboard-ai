@@ -4127,3 +4127,31 @@ npm.cmd test
 - **Acceptance:** focused payment-error inventory passes; test inventory reports exactly 1,458 declarations across 175 test files; full backend suite exits 0. Report tested HEAD and exact summaries/exit codes.
 - **Important:** the earlier local inventory output reportedly compared 1,458 computed declarations against 1,461 expected. Current GitHub baseline at the inspected commit records 1,458. If the inventory test still fails, send the complete assertion and do not manually edit the baseline until the exact local file/ref is reconciled.
 - **Safety:** local test harness only. No production Supabase, Prodamus, live payment, deployment, DNS or account deletion.
+
+## План 14 дней — старт (2026-11-23)
+
+### UA-092. Заказать российский VPS
+
+- **Status:** [ ] Awaiting owner.
+- **Что сделать:**
+  1. Заказать VPS в РФ: 2 vCPU, 4 ГБ RAM, 40 ГБ SSD, Ubuntu 24.04, цена не выше 3000 ₽/мес.
+  2. Выбрать оплату помесячно (не год), чтобы можно было сменить провайдера.
+  3. Создать SSH-ключ (или взять существующий) и добавить открытую часть в панели провайдера.
+  4. Написать в ответ: провайдер, IP-адрес, имя пользователя для входа, версия ОС. **Пароли и приватные ключи в чат не присылать.**
+- **Зачем:** дни 1–2 плана — без сервера нельзя начинать развёртывание (дни 3–4).
+- **Проверка после:** `ssh <user>@<ip>` открывается, `sudo -n true` проходит, `ufw status` или security group пропускает 22/80/443.
+
+### UA-093. Решить, где хранятся бэкапы БД
+
+- **Status:** [ ] Awaiting owner decision.
+- **Что сделать:** выбрать один вариант и написать его в ответ:
+  - отдельный диск/бакет у того же провайдера (проще, дешевле);
+  - объектное хранилище Beget;
+  - скачивание дампа на ваш компьютер по расписанию (бесплатно, но нужен ваш компьютер).
+- **Зачем:** бэкап на том же сервере не защищает от потери сервера — это дни 10–11 плана.
+
+### UA-094. Что приготовить к дням 5–9 (не сейчас, к моменту прогона)
+
+- **Status:** [ ] Awaiting owner (later).
+- **Что понадобится:** доступ в панель Beget (DNS и почта), ключ AI-провайдера, тестовые доступы Prodamus, приложение Pinterest в режиме Trial.
+- **Важно:** значения присылать не в чат, а вписывать прямо в `.env` на сервере — ассистент их не читает и не коммитит.
