@@ -3630,3 +3630,26 @@ test("malformed schedules reconciliation response fails closed without deleting 
     await backend.stop();
   }
 });
+
+
+test("malformed schedule retry metadata keeps failed rows visible but disables retry", async () => {
+  const backend = await startBackend();
+  try {
+    backend.db.table("GET", "pin_schedules", {
+      status: 200,
+      body: [scheduleRow({ status: "failed", pinterest_board_id: "board-1" })],
+    });
+    backend.db.table("GET", "pinterest_publish_attempts", { status: 200, body: null });
+    backend.db.table("GET", "pinterest_publications", { status: 200, body: [] });
+    backend.db.table("GET", "pinterest_accounts", { status: 200, body: [] });
+
+    const answer = await backend.send("GET", "/schedule");
+    assert.equal(answer.status, 200, JSON.stringify(answer.body));
+    assert.equal(answer.body.length, 1);
+    assert.equal(answer.body[0].status, "failed");
+    assert.equal(answer.body[0].retryable, false);
+    assert.equal(answer.body[0].retry_reason, "metadata_unavailable");
+  } finally {
+    await backend.stop();
+  }
+});
