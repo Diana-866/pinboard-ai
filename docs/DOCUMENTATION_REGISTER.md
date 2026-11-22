@@ -2340,18 +2340,18 @@ Commits: source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; regression `ff5d92c3
 
 | Path | Blob SHA | Change |
 |---|---|---|
-| `backend/adminFinancialOperations.js` | `604706d6f555428f7638b0045e140096c7975f8f` | Caps reservation related-record queries and fails closed at the sentinel |
-| `backend/adminPaymentCreationRequests.js` | `df14f213501e395e30040fbaf15c20d02e98222f` | Caps subscription/credit payment matching queries and fails closed |
-| `backend/test/admin-financial-operations.test.js` | `5c373dd4b7ca21e094a1e69fee5fc6e0ef43fbcf` | 1,001-row regression for reservation matching |
-| `backend/test/admin-payment-creation-requests.test.js` | `b33c04ee1ce3751f9b1cd36100910fe696663c0b` | 1,001-row regressions for subscription and credit-purchase matching |
+| `backend/adminFinancialOperations.js` | `270da09358bc35f3bd13ed783a1fb328b333259e` | Requests up to 1,000 rows and fails closed when the REST cap boundary is reached |
+| `backend/adminPaymentCreationRequests.js` | `0b174793b2e220f79ab8f2fd899b7e82719369ed` | Bounds subscription/credit payment matching and fails closed at the REST cap |
+| `backend/test/admin-financial-operations.test.js` | `a68de96496f757a771e51a9536f83150337aa4e4` | 1,000-row regression for reservation matching |
+| `backend/test/admin-payment-creation-requests.test.js` | `e20b087499938fb75cfd23cb8be52fad2d34645e` | 1,000-row regressions for subscription and credit-purchase matching |
 | `backend/test/test-inventory.json` | `af7f640c0258d68321137767bfbb71c3cb9811c8` | 1,454 declarations; relevant files 10 and 14 |
-| `docs/audits/AUD-418-bounded-financial-reconciliation-reads.md` | `20dc636a742c687904d88673e68d4fc70d1b9492` | Root cause, code/test commits, static verification and runtime boundary |
+| `docs/audits/AUD-418-bounded-financial-reconciliation-reads.md` | `8222af49ccf56b3228a3509743ba239b9f727dde` | Root cause, code/test commits, static verification and runtime boundary |
 
 Commits: financial source `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; payment source `095ac7f6973b27617e1a083668a3e9e6ca4288c9`; financial test `2e676b0e22815453357285b02853cc34d2b70533`; payment test `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7`; inventory `1af375d1bb45fa54e502c688e726cd46d7f5a933`; audit `e81d24fc2402335b30de602222efd9ec9b02207c`; UA-087 `80fe240d5fbadadc84b2dd4a49db83d4d2c80ce0`; PROJECT_STATE closeout `f746c80e373b3fccbf607ee8d6a7b9f1f7b52945`.
 
 ## Final synchronization — AUD-418 (2026-11-22)
 
-- Main HEAD before this register update: `f746c80e373b3fccbf607ee8d6a7b9f1f7b52945`.
-- Re-fetched current code, regression tests and inventory; static checks passed. Test inventory is 1,454.
+- Main HEAD before this register update: `72f8fcaca747e7ca2b126286df69ca6b38af0ad7`.
+- Re-fetched current code, regression tests and inventory after cap correction; queries use limit 1,000 and reject a response length of 1,000 (REST cap), not 1,001. Static checks passed; inventory is 1,454.
 - Runtime tests NOT RUN; UA-087 pending. Previous Actions runner failure occurred before steps and is not a test result.
 - No production/provider/deployment actions were performed.
