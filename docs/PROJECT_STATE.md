@@ -4129,3 +4129,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Safety:** no production database, provider, SMTP, Storage, Pinterest, DNS or deployment touched.
 - **Next:** UA-081/UA-080 focused and full backend runtime; continue payment history/reconciliation review.
 
+### 2026-11-22 — Retention candidate inventory validates RPC array (AUD-411)
+
+- **Base:** AUD-410 inventory commit `0223cb5eec423007fc9c6284f9c5dbd20d6b6d4c`.
+- **Finding:** `GET /admin/storage/retention-candidates` used `data || []` on `list_pin_image_retention_candidates` (SQL `RETURNS TABLE`). A malformed RPC envelope could be shown as an empty inventory.
+- **Fix:** route now uses `readArrayQueryResult({ data, error })`; malformed data returns 502. Added HTTP regression requiring 502, no candidate list and no mutations. Inventory 1444 → 1445.
+- **Commits:** route `f7d6ade5601db604b1eb7dfc778aa21769f2bca9`; test `1d78395fb5c0a542e3146ee2971edf0fd7d4edd6`; inventory `c8f0835a5907863af4f9481c765c4c7a16b7d499`; audit `c110f8592ecc726c1828c6e3ce7110e76e68bded`.
+- **Blobs:** index `a065f4743d0a510e219c8dfcc1f86849d40ffffa`; API tests `0a5b6b01835c1edf004dd86f67232fd8d8a0a8ff`; inventory `f4c901494fee1135415b2eaaf5444119bfbf995d`.
+- **Static verification:** re-fetched changed source/test/inventory; strict validator and test count confirmed. Runtime NOT RUN; no PASS claimed.
+- **Safety:** no production DB, Storage cleanup, provider, Pinterest, DNS or deployment touched.
+- **Next:** focused storage/admin tests and full backend runtime through UA-081/UA-080; continue read-contract review.
+
