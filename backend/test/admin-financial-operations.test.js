@@ -205,3 +205,26 @@ test("task truncation is scoped to the capped batch, not unrelated generation re
     fixtures.pin_generation_requests.splice(0, fixtures.pin_generation_requests.length, ...original);
   }
 });
+
+
+test("reservation matching fails closed when a REST-capped lookup could hide duplicate requests", async () => {
+  const original = fixtures.pin_generation_requests.slice();
+  try {
+    for (let index = 0; index < 1000; index += 1) {
+      fixtures.pin_generation_requests.push({
+        id: 1000 + index,
+        user_id: "private-user-1",
+        idempotency_key: "private-generation-key",
+        status: "processing",
+        created_at: oldTimestamp,
+        updated_at: oldTimestamp,
+      });
+    }
+    await assert.rejects(
+      getFinancialOperationsQueue({ limit: 1 }),
+      (error) => error.httpStatus === 502
+    );
+  } finally {
+    fixtures.pin_generation_requests.splice(0, fixtures.pin_generation_requests.length, ...original);
+  }
+});
