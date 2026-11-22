@@ -2,7 +2,7 @@
 
 **Repository:** Diana-866/pinboard-ai  
 **Branch:** main  
-**Latest code/test change commit (runtime verification pending):** `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd`  
+**Latest code/test change commit (runtime verification pending):** `f500b172d7370dc50a57dd7609715003af6a82d9`  
 **Documentation closeout commit:** `b32597409054ce2b2fedc7732369a81b2edb21d5`  
 **Inventory refreshed:** 2026-11-18 (supplemental receipt journal entries appended; full metadata inventory refresh not performed)  
 **Scope:** all documentation files under docs/ (Markdown and SQL), excluding this register itself.
@@ -2448,3 +2448,20 @@ Commits: component `82986881a2a417795a7d786645bbf15995a58035`; AdminPanel `5c77e
 - Vercel status on code HEAD `2b13f46b882c372a906cb44c809169083d2bc47b`: `build-rate-limit` failure, retry in 24 hours. No deployment PASS.
 - State receipt commit `15443575c6d5b8d8cf12330a40552d7a045a1d64`; user-action receipt `6460b0b620b8c79e50815ce20b58f08b8553a30c`.
 - UA-088/089/090 remain pending owner/local runtime evidence. No production or external mutation. PRs #92–#96 remain open/unmerged.
+
+
+### AUD-423 — admin-only email-outbox health 5xx inventory (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `backend/test/payment-server-error-codes.test.js` | `65c094536aff981887b203201df007b443ce40ea` | Reasoned exemptions for the two operator-only malformed statistics responses; test asserts `requireAuth` and `requireAdmin` remain on the endpoint |
+| `docs/audits/2026-11-22-admin-email-outbox-5xx-exemptions.md` | `5fb3a9326c94c8d0a93aa922da4728b3afdd36ab` | Root cause, route proof, regression guard and runtime boundary |
+
+Commits: test `f500b172d7370dc50a57dd7609715003af6a82d9`; audit `75a163bf4526adcdd443a8d73a1e4a9816596498`; UA-091 `2bd415fd2e0818f2effc44ffd30c6c6135c7487e`; PROJECT_STATE `57cecce55a0d28a2e642c6773524199647dc1779`.
+
+## AUD-423 synchronization receipt — 2026-11-22
+
+- Main HEAD before this register update: `57cecce55a0d28a2e642c6773524199647dc1779`.
+- Static re-fetch confirmed the regression file and audit report are present; current backend inventory remains 1,458 declarations across 175 files and the payment-server-error inventory remains 2 declarations.
+- Runtime test after the change NOT RUN by this session; UA-091 pending. The owner-reported 1,458 vs 1,461 inventory assertion still needs a fresh local rerun and reconciliation.
+- No production DB, payments/provider, deployment, DNS or external mutation.
