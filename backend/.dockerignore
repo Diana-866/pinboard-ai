@@ -1,12 +1,25 @@
-# В образ не должны попадать секреты, локальные зависимости и тестовые данные.
+# В образ не должны попадать секреты, локальные зависимости, тестовые данные
+# и резервные копии базы. Иначе .env и .git остаются в истории слоёв навсегда,
+# хостовый node_modules перекрывает чистый из стадии deps, а дамп базы с
+# персональными данными уезжает внутрь образа.
 .env
 .env.*
 !.env.example
 node_modules
 npm-debug.log*
 test
+tests
 coverage
 .git
 .gitignore
+.github
+.agent-merge
+.agent-verify
+backups
+*.dump
+*.dump.part
+*.sha256
 *.log
 *.md
+Dockerfile
+.dockerignore
