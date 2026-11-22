@@ -88,3 +88,31 @@ test("environment access is explicit, not looked up by key", () => {
   }
   assert.deepEqual(dynamic, [], `environment must be read by name: ${dynamic.join(", ")}`);
 });
+
+const DIST = path.join(__dirname, "..", "..", "frontend", "dist");
+
+test("a built bundle carries no server secrets", (t) => {
+  // Проверка исходников не видит того, что подставил сборщик. Если каталог сборки есть,
+  // он проверяется целиком: на сервере это делается после каждого `vite build`.
+  if (!fs.existsSync(DIST)) {
+    t.skip("frontend/dist is absent; run `npm run build` in frontend/ to check a real bundle");
+    return;
+  }
+  const hits = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.(js|css|html|map)$/.test(entry.name)) {
+        const text = fs.readFileSync(full, "utf8");
+        for (const pattern of FORBIDDEN) {
+          if (pattern.test(text)) hits.push(`${path.relative(DIST, full)}: ${pattern}`);
+        }
+        if (/postgres(ql)?:\/\//.test(text)) hits.push(`${path.relative(DIST, full)}: database url`);
+      }
+    }
+  };
+  walk(DIST);
+  assert.deepEqual(hits, [], `secrets inside the built bundle: ${hits.join(", ")}`);
+});
