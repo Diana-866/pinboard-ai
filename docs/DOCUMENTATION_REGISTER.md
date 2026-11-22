@@ -2173,3 +2173,16 @@ Review comment posted to PR #96: `7080338627`. State commit `d9c0d85d50167f443b2
 | `docs/audits/2026-11-22-review-queue-malformed-envelope.md` | created in commit `4aec2622631c8009a3b696eb9206e675f3c8783e` | Root cause, implementation, commit list and verification boundary |
 
 Commits: helper `8b80eff40db9e87e1bcd91c5a89cbaf0f1cdd3be`; route `9d6b1c9d04d99053568157775b1b2eff787f1a3a`; tests `d3187215dacb1e0eba2f1c672fa87b769a46bbed`, `0a76269dd9cc617c96fb534029f369794ca64a29`, `5bb199b37bc76bc360b4f1311274c79a5d82686c`; inventory `3db7df927f6cd9a51b866fb3c2f8bc31ac491a8a`. State commit `19e1c5471ba78b24f3cda43b1490b68d3265a67e`; owner action commit `2e7362a9154e2f1677db3fac8f6983b2b9d47377`. Runtime tests NOT RUN; UA-076 includes targeted and full backend commands.
+
+
+### AUD-408 — schedule retry metadata fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/index.js` | `acc9a535438d85c152ad5364e81851460e229e39` | Validates attempts/publications/accounts query envelopes and disables retry when metadata is unavailable |
+| `backend/test/api-authenticated-reads.test.js` | `9fad565ab5f7b72148d69df01602e2a8ddb6a9ed` | HTTP regression for malformed attempts response |
+| `backend/test/pinterest-schedule-list-contract.test.js` | `c03eb9069864e755fe1d1bfa31d234543396056d` | Contract test for strict metadata validation |
+| `backend/test/test-inventory.json` | `0a35dff4a3ef7add8899a99f3c6972d4e6daaeb6` | Inventory total 1439 |
+| `docs/audits/2026-11-22-schedule-retry-metadata-fail-closed.md` | created in commit `c7dc4a522d8e31e90bf305327fe42648f1eb6539` | Root cause, changes, evidence and runtime limitation |
+
+Commits: code `afc394d904f082028d00ce0068414e4d73b9e1df`; HTTP test `94ae91a3d5bef3b0d09536972956329ddba0c630`; contract `6978b9995c0f5327705d4ea823c1d734e21e667f`; inventory `cfe386007abe41ae4c3286eccf6826be96802872`; state `aeab804f3f38ad5a932f4c6d41e53ee90f9f2aca`; owner action `82a88c8876bc7d0be2c41ae94c0a8addef81e9be`. Runtime NOT RUN; UA-076 updated with targeted and full backend commands.
