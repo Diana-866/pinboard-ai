@@ -189,6 +189,26 @@ test("an empty queue reports zeros and no oldest request", async () => {
   assert.deepEqual(inventory.requiring_attention, []);
 });
 
+test("attention results expose truncation when a sentinel row exceeds the requested limit", async () => {
+  const scenario = baseScenario({ lists: {
+    "account_deletion_jobs:blocked,retry_wait,running": [
+      { id: "8f2c1c8e-4a52-4a1f-9d43-1f0e4c3b7a11", request_id: REQUEST_ID, step_key: "erase_content", status: "blocked", attempts: 4, safe_error_code: null, next_attempt_at: null, updated_at: "2026-11-18T08:30:00.000Z" },
+      { id: "9f2c1c8e-4a52-4a1f-9d43-1f0e4c3b7a12", request_id: REQUEST_ID, step_key: "erase_content", status: "retry_wait", attempts: 2, safe_error_code: null, next_attempt_at: "2026-11-18T09:30:00.000Z", updated_at: "2026-11-18T08:45:00.000Z" },
+    ],
+  } });
+  const inventory = await getAccountDeletionInventory({ limit: 1 }, createDb(scenario), NOW);
+  assert.equal(inventory.requiring_attention.length, 1);
+  assert.equal(inventory.requiring_attention_truncated, true);
+});
+
+test("malformed operational rows fail closed instead of appearing as valid deletion jobs", async () => {
+  const invalidRows = [null, {}, { id: "not-uuid", request_id: REQUEST_ID, step_key: "erase_content", status: "blocked", attempts: 1, updated_at: "2026-11-18T08:30:00.000Z" }, { id: "8f2c1c8e-4a52-4a1f-9d43-1f0e4c3b7a11", request_id: REQUEST_ID, step_key: "erase_content", status: "blocked", attempts: -1, updated_at: "2026-11-18T08:30:00.000Z" }, { id: "8f2c1c8e-4a52-4a1f-9d43-1f0e4c3b7a11", request_id: REQUEST_ID, step_key: "erase_content", status: "blocked", attempts: 1, updated_at: "not-a-date" }];
+  for (const row of invalidRows) {
+    const scenario = baseScenario({ lists: { "account_deletion_jobs:blocked,retry_wait,running": [row] } });
+    await assert.rejects(() => getAccountDeletionInventory({}, createDb(scenario), NOW), /job row is invalid/);
+  }
+});
+
 test("the limit is bounded and rejects nonsense", () => {
   assert.equal(parseLimit(undefined), 20);
   assert.equal(parseLimit("1"), 1);

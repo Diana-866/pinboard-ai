@@ -20,6 +20,8 @@ const JOB_STATUSES = ["pending", "retry_wait", "running", "succeeded", "blocked"
 const REQUEST_STATES = ["pending", "completed", "canceled"];
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const STEP_KEY_RE = /^[a-z][a-z0-9_]{0,63}$/;
 
 function parseLimit(value) {
   if (value === undefined || value === null || value === "") return DEFAULT_LIMIT;
@@ -48,6 +50,10 @@ async function countByStatus(db, table, column, value) {
     .eq(column, value);
   if (error) throw error;
   return normalizeCount(count, `${table}.${column}=${value}`);
+}
+
+function validTimestamp(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
 function ageMinutes(timestamp, nowMs) {
@@ -85,6 +91,11 @@ async function getAccountDeletionInventory(query = {}, db = supabase, now = Date
     throw new Error("account deletion inventory oldest request response is not an array");
   }
   const oldest = oldestPending[0] || null;
+  if (oldest && (typeof oldest !== "object" || Array.isArray(oldest) ||
+      typeof oldest.id !== "string" || !UUID_RE.test(oldest.id) ||
+      !validTimestamp(oldest.requested_at))) {
+    throw new Error("account deletion inventory oldest request row is invalid");
+  }
 
   // Blocked and long-running jobs are the ones that need a person.
   const { data: needingAttention, error: attentionError } = await db
@@ -92,23 +103,37 @@ async function getAccountDeletionInventory(query = {}, db = supabase, now = Date
     .select("id, request_id, step_key, status, attempts, safe_error_code, next_attempt_at, updated_at")
     .in("status", ["blocked", "retry_wait", "running"])
     .order("updated_at", { ascending: true })
-    .limit(limit);
+    .limit(limit + 1);
   if (attentionError) throw attentionError;
   if (!Array.isArray(needingAttention)) {
     throw new Error("account deletion inventory job response is not an array");
   }
 
-  const jobs = needingAttention.map((row) => ({
-    job_id: String(row.id),
-    request_id: String(row.request_id),
-    step_key: row.step_key,
-    status: row.status,
-    attempts: Number.isSafeInteger(row.attempts) ? row.attempts : null,
-    error_code: safeErrorCode(row.safe_error_code),
-    next_attempt_at: row.next_attempt_at || null,
-    updated_at: row.updated_at || null,
-    age_minutes: ageMinutes(row.updated_at, now),
-  }));
+  const attentionTruncated = needingAttention.length > limit;
+  const visibleJobs = needingAttention.slice(0, limit);
+  const jobs = visibleJobs.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row) ||
+        typeof row.id !== "string" || !UUID_RE.test(row.id) ||
+        typeof row.request_id !== "string" || !UUID_RE.test(row.request_id) ||
+        typeof row.step_key !== "string" || !STEP_KEY_RE.test(row.step_key) ||
+        !JOB_STATUSES.includes(row.status) ||
+        !Number.isSafeInteger(row.attempts) || row.attempts < 0 ||
+        !validTimestamp(row.updated_at) ||
+        (row.next_attempt_at != null && !validTimestamp(row.next_attempt_at))) {
+      throw new Error("account deletion inventory job row is invalid");
+    }
+    return {
+      job_id: row.id.toLowerCase(),
+      request_id: row.request_id.toLowerCase(),
+      step_key: row.step_key,
+      status: row.status,
+      attempts: row.attempts,
+      error_code: safeErrorCode(row.safe_error_code),
+      next_attempt_at: row.next_attempt_at || null,
+      updated_at: row.updated_at,
+      age_minutes: ageMinutes(row.updated_at, now),
+    };
+  });
 
   return {
     generated_at: new Date(now).toISOString(),
@@ -117,6 +142,7 @@ async function getAccountDeletionInventory(query = {}, db = supabase, now = Date
     oldest_pending_requested_at: oldest ? oldest.requested_at || null : null,
     oldest_pending_age_minutes: oldest ? ageMinutes(oldest.requested_at, now) : null,
     requiring_attention: jobs,
+    requiring_attention_truncated: attentionTruncated,
     note: "Read-only. A blocked job will not retry on its own; a running job only moves when its lease expires.",
   };
 }
