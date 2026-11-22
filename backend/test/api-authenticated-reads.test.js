@@ -3076,9 +3076,17 @@ test("an administrator subscription inventory rejects a malformed successful dat
 
     assert.equal(answer.status, 502, JSON.stringify(answer.body));
     assert.equal(answer.body.subscriptions, undefined);
-    assert.equal(
-      backend.db.requests.filter((entry) => entry.method === "GET" && entry.path === "/rest/v1/users").length,
-      0,
+    // Обращения middleware к users (token_version, профиль, тариф) сюда не относятся:
+    // проверяется именно вторичный поиск почт, который маршрут делает после чтения подписок.
+    const emailLookups = backend.db.requests.filter(
+      (entry) =>
+        entry.method === "GET" &&
+        entry.path === "/rest/v1/users" &&
+        String(entry.query.select || "").replace(/\s+/g, "") === "id,email"
+    );
+    assert.deepEqual(
+      emailLookups.map((entry) => entry.query.select),
+      [],
       "a malformed subscription inventory must stop before the secondary user lookup"
     );
   } finally {
