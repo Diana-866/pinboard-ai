@@ -188,7 +188,7 @@ async function getFinancialOperationsQueue(options = {}) {
     };
   });
 
-  const reservationRows = reservations.map((row) => {
+  const reservationItems = reservations.map((row) => {
     const matchingRequests = requestsByKey.get(operationKey(row.user_id, row.idempotency_key)) || [];
     const matchingRequest = matchingRequests.length === 1 ? matchingRequests[0] : null;
     const ambiguousMatch = matchingRequests.length > 1;
@@ -223,11 +223,11 @@ async function getFinancialOperationsQueue(options = {}) {
     counts: {
       generation: generation.length,
       regeneration: regeneration.length,
-      reservations: reservationRows.length,
+      reservations: reservationItems.length,
     },
     generation,
     regeneration,
-    reservations: reservationRows,
+    reservations: reservationItems,
     read_only: true,
     note: "Age indicates that an operation needs review; it does not prove provider failure, refund, or that a credit reservation is safe to release. No records were changed.",
   };
