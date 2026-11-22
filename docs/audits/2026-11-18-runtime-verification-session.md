@@ -2381,7 +2381,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 3. удалена строка хронологии `8d234c5f` → `commits with no row in the chronology: 8d234c5f feat(ops): smoke check…`;
 4. освобождение для `docs:`-коммитов объявлено для всех коммитов → проверка «освобождение не маскирует код» **сразу нашла реальный случай**: `422efd34` с заголовком `docs:` менял страж `documentation-integrity.test.js` (строка 172 реестра добавлена задним числом). Инвариант «`docs:`-коммит трогает только `docs/`» теперь проверяется для **каждого** такого коммита, а не только для освобождённого.
 
-### 56.4. Приложение. Полная хронология коммитов сессии (115)
+### 56.4. Приложение. Полная хронология коммитов сессии (117)
 
 Каждая строка: хеш, дата, суть и адрес, где объяснено «зачем». Разделы — в этом документе, строки — в реестре действий, UA — в `docs/USER_ACTIONS.md`.
 
@@ -2715,6 +2715,8 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `cab5ba9c` | 2026-11-22 | docs: local test bench runbook (temp PostgreSQL + PostgREST + SMTP sink), verified E2E auth flow | §165.3 |
 | `c0bc4b20` | 2026-11-22 | feat(deploy): container image, backup and restore verification scripts, Amvera runbook, development log | §165.4 |
 | `f752f4ee` | 2026-11-22 | feat(qa): automated bench end-to-end check; honest registration copy when mail is unavailable; backup runbook | §165.6 |
+| `54a40d53` | 2026-11-22 | docs: chronology rows for the 21-22.11 session commits | §165.5 |
+| `f57d9773` | 2026-11-22 | docs: section 165.6 and chronology row for the QA automation commit | §165.6 |
 
 ### 56.5. Что это даёт владельцу
 
