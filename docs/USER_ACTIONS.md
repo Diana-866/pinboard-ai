@@ -4021,3 +4021,5 @@ npm.cmd test
 - **Expected:** all focused admin financial tests and inventory check pass; report exact HEAD, summary and exit code.
 - **Commits:** source `a6f0e0c997d7b400ecede47c154c751c7885adb4`; test `71f7ffe7f35eb016e8bf347b473cf46cd259bc30`; inventory `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3`.
 - **Safety:** local test only; do not use production DB or invoke payment/provider operations.
+
+- **CI receipt (2026-11-22, main):** runs `45036779163` (postgres-atomicity) and `45036779042` (frontend/backend) on code/inventory commit `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3` completed failure with `runner_id=0` and no steps. No workflow command executed. Vercel current status is `failure` / `build-rate-limit`; owner must resolve runner allocation/account quota separately. This is not a code test result.
