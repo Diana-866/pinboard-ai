@@ -80,7 +80,13 @@ test("schedule API paginates the full calendar and chunks retry metadata lookups
   assert.match(route, /\.order\("scheduled_at", \{ ascending: true \}\)[\s\S]*\.order\("id", \{ ascending: true \}\)/);
   assert.match(route, /chunksOf\(pinIds\)/);
   assert.match(route, /chunksOf\(accountIds\)/);
-  assert.match(route, /flatMap\(\(result\) => result\.data \|\| \[\]\)/);
+  // Каждый результат чтения проходит через readArrayQueryResult: прежняя форма
+  // `result.data || []` молча превращала искажённый ответ источника данных в «ничего нет»,
+  // и календарь выглядел пустым вместо честной ошибки 502.
+  assert.match(route, /attemptsResults\.flatMap\(readArrayQueryResult\)/);
+  assert.match(route, /publicationsResults\.flatMap\(readArrayQueryResult\)/);
+  assert.match(route, /accountsResults\.flatMap\(readArrayQueryResult\)/);
+  assert.doesNotMatch(route, /result\.data \|\| \[\]/, "a malformed query result must not look like an empty calendar");
   assert.match(route, /attemptsByPinAndAccount/);
   assert.match(route, /attemptsByExactDestination/);
   assert.match(route, /publicationKeys/);
