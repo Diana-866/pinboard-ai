@@ -26,7 +26,7 @@ This does not change registration success semantics, account creation, token gen
 
 ## PR #96 reconciliation
 
-PR #96 (`spark/audit-2026-11-22`, head `bc3271dcf49b9a093974f03705eeb8a04149abc8)) remains open and unmerged.
+PR #96 (`spark/audit-2026-11-22`, head `bc3271dcf49b9a093974f03705eeb8a04149abc8` remains open and unmerged.
 
 Current reviewed risks:
 1. The PR branch is based on a main revision predating the fail-closed consent fix. Its auth compatibility fallback must be reconciled so no retry can omit `terms_accepted_at`.
@@ -41,4 +41,4 @@ Current reviewed risks:
 
 ## Status
 
-Source/test patch prepared for publication. Runtime verification is **NOT VERIFIED**. PR #96 is not merged; no storage cutover or production action was performed.
+Source/test patch published in commit `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43`. Runtime verification is **NOT VERIFIED**. PR #96 is not merged; no storage cutover or production action was performed.

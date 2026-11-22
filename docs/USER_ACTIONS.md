@@ -3807,3 +3807,12 @@ npm.cmd test
 
 **Статус:** ожидается. Не запускать production SQL и не использовать production credentials для тестов.
 
+
+### AUD-403 — публикация и closeout (2026-11-22)
+
+- Source/test опубликованы в `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43`; GitHub commit diff re-fetched и проверен: только `backend/auth.js` +4/-2 и `backend/test/auth.test.js` +2/-0, помимо документов.
+- После первой попытки создания commit `e73ffb4766172bda61dfef795b05d1e456e0e7ca` main оказался на документационном commit `d9ad180...` (изменения не были в его ancestry). Повторно fetched актуальные файлы/дерево и создал опубликованный commit поверх актуального HEAD; stale commit не перемещал ref и не перезаписывал историю.
+- Actions: backend/frontend jobs `137233202645`, `137233202903` и postgres job `137233202516` — все `runner_id=0`, `steps=[]`; тесты не стартовали.
+- Vercel combined status на source commit был `pending` при проверке. Deployment не подтверждён.
+- Никаких production actions не выполнялось. UA-075 / UA-076 остаются за владельцем.
+

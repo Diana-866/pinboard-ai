@@ -2092,3 +2092,14 @@ Node tests were not executed in this connector-only session. Do not infer CI PAS
 
 Code base `b32597409054ce2b2fedc7732369a81b2edb21d5`; documentation-only main HEAD before publication `d9ad180640636783c2591909ba63540c0aaea1f9`. Runtime Node tests NOT RUN; GitHub Actions runner allocation has zero steps. PR #96 remains open/unmerged; its storage base URL flag must not be enabled before actual provider operations are migrated. Owner actions UA-075 and UA-076 remain open.
 
+
+### AUD-403 publication receipt — 2026-11-22
+
+- Source/test commit: `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43`.
+- Source blob `backend/auth.js`: `0cbc29525afeb087ffc697140adc58b7e621d413`.
+- Test blob `backend/test/auth.test.js`: `ed541cc98b693cd3575324cca5948434c6bbf774`.
+- Audit blob `docs/audits/2026-11-22-registration-email-status-honesty.md`: `ac48b2dc08bf83684d72e6d349d5e507ce67cced` (updated closeout copy is included in this documentation commit).
+- State/action/register blobs in the source/test commit: state `e287a3dff0ca0e6196f6dc634998302c9b788f59`, actions `a68332f496b992401604b6a399d15e21cacdcc15`, register `58f9f8974b6fda19c7fcd0a9f546b004826ddaf2`.
+- CI jobs `137233202645`, `137233202903`, `137233202516`: all runner allocation failure (`runner_id=0`, no steps). Vercel was pending at the latest status query; no deployment claim.
+- Docs closeout is being committed on top of verified main `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43`; final ref must be re-fetched after update.
+

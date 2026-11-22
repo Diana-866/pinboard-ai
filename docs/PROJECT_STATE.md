@@ -3995,3 +3995,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Владелец:** UA-075 (migration 166) остаётся открытым; UA-076 — выполнить backend tests локально, если CI runner недоступен.
 - **Безопасность:** production DB/data, SMTP, платежи, Pinterest, DNS и deployment не затрагивались.
 - **Следующий шаг:** проверить опубликованный diff и commit SHA; продолжить безопасное извлечение/согласование только тех частей PR #96, которые не меняют storage provider и не регрессируют consent.
+
+### AUD-403 closeout — публикация и фактический CI результат
+
+- **Source + regression test commit:** `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43` (parent `d9ad180640636783c2591909ba63540c0aaea1f9`).
+- **Blobs:** `backend/auth.js` `0cbc29525afeb087ffc697140adc58b7e621d413`; `backend/test/auth.test.js` `ed541cc98b693cd3575324cca5948434c6bbf774`; AUD-403 `ac48b2dc08bf83684d72e6d349d5e507ce67cced`.
+- **GitHub diff:** повторно получен из commit API; source +4/-2, test +2/-0. Только условное сообщение и две регрессионные assertions.
+- **Actions:** run `45030627525` jobs backend `137233202645` и frontend `137233202903`; run `45030627510` postgres job `137233202516`. Все завершились failure с `runner_id=0`, `steps=[]`; runtime тесты не стартовали.
+- **Vercel:** на момент проверки combined status `pending`; не считать deployment завершённым.
+- **Публикация:** main ref подтверждён на source/test commit до этого документационного closeout. История не переписывалась; первая попытка commit на устаревшем parent `e73ffb4766172bda61dfef795b05d1e456e0e7ca` не вошла в main; после refresh выполнен корректный commit поверх актуального `d9ad180...`.
+- **Открыто:** UA-075 и UA-076; PR #96 остаётся open. Следующий безопасный шаг — локальный backend test suite/runner, затем отдельно reconcile PR #96 без storage cutover.
