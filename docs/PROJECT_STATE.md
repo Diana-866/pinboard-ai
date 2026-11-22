@@ -4090,3 +4090,17 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Runtime:** tests NOT RUN; no runtime PASS claimed.
 - **Safety:** no production DB, external Pinterest, Prodamus, Storage or deployment touched.
 - **Next:** UA-076 targeted/full backend tests on working local runner; continue release-readiness review.
+
+### 2026-11-22 — Billing inventory and schedule account recovery fail closed (AUD-409)
+
+- **Base:** `cfe386007abe41ae4c3286eccf6826be96802872`.
+- **Finding:** admin pending-order and webhook-exception endpoints could treat malformed successful query results as empty lists; schedule account recovery could treat malformed attempts/publications/duplicate reads as no history and calculate retry eligibility.
+- **Fix:** `readArrayQueryResult` now validates billing inventory arrays and all retry metadata arrays in `POST /schedule/:id/reconcile-account`. Non-null account data must be an object whose ID exactly matches the selected account. Invalid metadata returns `retryable:false`, `retry_reason:"metadata_unavailable"`.
+- **Regression tests:** malformed webhook exception and pending order HTTP responses must return 502; schedule account-recovery contract requires strict array and account identity checks. Inventory updated 1439 → 1442.
+- **Commits:** source `42e4546998d50944ff2ab486c0210e2d0484f3d2`; HTTP tests `e2cc97edee60e3267f07d8975c496f32ecd48233`; schedule contract `dfc64df387d7a39f5ce4d84496c6c168a02a6f3f`; inventory `5e88940e1479639824c5411251a66dae8bfbfa9b`; audit `6b36bf3dee26c233638bd8fcab3ca7a842f290d6`.
+- **Blobs:** index `d98404479adffa3d5dcca09528c72b33487b02fc`; API tests `3c545e069a47921aefb753293a2e4b272b4e544a`; schedule contract `9af064c4de7231d3e35b268546f79c98ca35d9de`; inventory `8cd88664b6882fc645153b13bbd03f96b30418e2`.
+- **Static verification:** GitHub re-fetch confirmed source/test blobs, validator call sites, no old billing array fallbacks in the affected handlers, account identity guard and inventory totals (1442; API test count 113; schedule contract count 3).
+- **Runtime:** Node tests NOT RUN. Recent GitHub Actions jobs failed before producing steps; no runtime PASS claimed. Vercel status was pending on the latest checked main documentation commit.
+- **Safety:** no production DB, payment provider, Pinterest, Storage, DNS or deployment touched.
+- **Next:** UA-080 local targeted and full backend runtime tests; then continue code review of remaining payment and publication failure paths.
+
