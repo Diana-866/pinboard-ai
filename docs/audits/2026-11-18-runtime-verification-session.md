@@ -2717,6 +2717,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `f752f4ee` | 2026-11-22 | feat(qa): automated bench end-to-end check; honest registration copy when mail is unavailable; backup runbook | §165.6 |
 | `54a40d53` | 2026-11-22 | docs: chronology rows for the 21-22.11 session commits | §165.5 |
 | `f57d9773` | 2026-11-22 | docs: section 165.6 and chronology row for the QA automation commit | §165.6 |
+| `85bd6080` | 2026-11-22 | docs: chronology rows for the documentation commits (54a40d53, f57d9773) | §165.6 |
 
 ### 56.5. Что это даёт владельцу
 
