@@ -107,6 +107,6 @@ test('account deletion inventory panel displays partial results explicitly and s
   assert.match(panel, /\/admin\/account-deletion\/inventory\?limit=50/);
   assert.match(panel, /requiring_attention_truncated/);
   assert.match(panel, /Очередь неполная/);
-  assert.match(panel, /not запускает и не повторяет удаление данных/);
+  assert.match(panel, /не запускает и не повторяет удаление данных/);
   assert.doesNotMatch(panel, /method:\s*['"]POST['"]/);
 });
