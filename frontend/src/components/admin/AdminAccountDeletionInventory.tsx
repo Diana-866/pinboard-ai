@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ClipboardList, Clock3, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertCircle, ClipboardList, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 
 type DeletionJob = {
@@ -33,8 +33,12 @@ const JOB_STATUS_LABEL: Record<DeletionJob['status'], string> = {
   blocked: 'Заблокировано',
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const STEP_KEY_RE = /^[a-z][a-z0-9_]{0,63}$/;
+const ERROR_CODE_RE = /^[a-z0-9_]{1,64}$/;
+
 function isCount(value: unknown): value is number {
-  return Number.isSafeInteger(value) && Number(value) >= 0;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 function isInventory(value: any): value is Inventory {
@@ -50,12 +54,16 @@ function isInventory(value: any): value is Inventory {
     return false;
   }
   if (value.oldest_pending_age_minutes !== null && !isCount(value.oldest_pending_age_minutes)) return false;
+  if (value.oldest_pending_requested_at !== null &&
+      (typeof value.oldest_pending_requested_at !== 'string' || !Number.isFinite(Date.parse(value.oldest_pending_requested_at)))) return false;
   return value.requiring_attention.every((job: any) =>
     job && typeof job === 'object' && !Array.isArray(job) &&
-    typeof job.job_id === 'string' && typeof job.request_id === 'string' &&
-    typeof job.step_key === 'string' && typeof job.status === 'string' && Object.keys(JOB_STATUS_LABEL).includes(job.status) &&
+    typeof job.job_id === 'string' && UUID_RE.test(job.job_id) &&
+    typeof job.request_id === 'string' && UUID_RE.test(job.request_id) &&
+    typeof job.step_key === 'string' && STEP_KEY_RE.test(job.step_key) &&
+    typeof job.status === 'string' && Object.keys(JOB_STATUS_LABEL).includes(job.status) &&
     isCount(job.attempts) &&
-    (job.error_code === null || typeof job.error_code === 'string') &&
+    (job.error_code === null || (typeof job.error_code === 'string' && ERROR_CODE_RE.test(job.error_code))) &&
     (job.next_attempt_at === null || (typeof job.next_attempt_at === 'string' && Number.isFinite(Date.parse(job.next_attempt_at)))) &&
     typeof job.updated_at === 'string' && Number.isFinite(Date.parse(job.updated_at)) &&
     (job.age_minutes === null || isCount(job.age_minutes))
