@@ -71,6 +71,9 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
 
   const paymentByOrderId = new Map();
   for (const row of subscriptionRows) {
+    if (paymentByOrderId.has(row.provider_payment_id)) {
+      throw new Error("provider order ID is linked to multiple local payment records");
+    }
     paymentByOrderId.set(row.provider_payment_id, {
       local_payment_record_id: row.id,
       local_payment_status: row.status,
