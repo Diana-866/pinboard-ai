@@ -4153,3 +4153,16 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Safety:** no production DB/provider/Storage/email/Pinterest/DNS/deployment touched.
 - **Next:** run UA-081/UA-080 local focused + full backend suite; continue financial read-path review.
 
+## Working-period closeout — 2026-11-22 (AUD-410–412)
+
+- **Main HEAD before final closeout:** `9526edcf9a3158fbafea7bbe500f844db0d6553a`.
+- **Completed and published:** AUD-410 billing subscription/email-outbox strict read validation; AUD-411 retention RPC strict array validation; AUD-412 financial reconciliation and credit purchase history strict reads. All code, regression declarations, inventory and audits are on `main`.
+- **Commits:** AUD-410 source `63c383029b8e6ff4f3e92d54bd6167b43c745952`, tests `b2cd1d445772cd24fbcccb84aff25ec9e5fc136d` / `6fbcf5bfc68d8268e30e717b5d98903b4160ad19`, inventory `0223cb5eec423007fc9c6284f9c5dbd20d6b6d4c`; AUD-411 route `f7d6ade5601db604b1eb7dfc778aa21769f2bca9`, test `1d78395fb5c0a542e3146ee2971edf0fd7d4edd6`, inventory `c8f0835a5907863af4f9481c765c4c7a16b7d499`; AUD-412 financial source `0958b429a9d559ee621dea48c6360afe7b2c4251`, tests `78698054d968483de3006d1cfbed315854eb33a0`, credit source `d08d535056b611b38133883f4131cafed7174866`, credit test `b31b1f4acc184cd889fcb1d86550f1e7dcc44148`, inventory `19c883abb7811fc0ba7307fc99b267a5e3a73e95`.
+- **Inventory:** 1447 declarations; actual declaration counts match modified files (API authenticated reads 116; email-outbox 6; admin financial operations 7).
+- **Static publication check:** re-fetched changed source/test/inventory; strict validators confirmed; no `data || []` fallbacks remain in `backend/billing.js`, `backend/adminFinancialOperations.js` or `backend/creditsBilling.js`; retention RPC route now validates its table result.
+- **Runtime:** Node tests NOT RUN. Latest Actions jobs on code commit `19c883abb7811fc0ba7307fc99b267a5e3a73e95` fail with `runner_id=0`, `steps=null`; no command executed. UA-080/081 remain pending for local Node 22 focused/full suite.
+- **Vercel:** latest checked main status `pending` on docs commit `9526edcf9a3158fbafea7bbe500f844db0d6553a`. PR #96 contains a Vercel author-verification blocker on commit `bc3271dcf49b9a093974f03705eeb8a04149abc8`; UA-082 requires owner account/commit identity check. No deployment Ready claimed.
+- **PR #96:** remains open/unmerged. UA-079 now includes legacy URL deletion, Content-Type, checksum verification, end-to-end storage provider wiring and consent timestamp fallback. `PIN_IMAGE_PUBLIC_BASE_URL` must not be enabled for S3/CDN until the full lifecycle adapter and migration are implemented/tested. No merge/cutover performed.
+- **Documentation:** AUD-410/411/412 reports, PROJECT_STATE, USER_ACTIONS UA-081/082 and DOCUMENTATION_REGISTER updated. No production database, Prodamus, SMTP, Pinterest, Storage, DNS or deployment touched.
+- **Next:** owner runtime acceptance (UA-080/081/082); continue independent review of remaining payment history/admin read contracts. Release readiness remains blocked until actual tests, Vercel deployment and external payment/storage paths are verified.
+
