@@ -72,7 +72,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToApp }) => {
               </span>
             </div>
             <p className="hidden truncate text-[11px] text-muted-theme sm:block">
-              Подписки, биллинг, финансовые операции, Pinterest и почта
+              Подписки, биллинг, финансовые операции, Pinterest, удаление аккаунтов и почта
             </p>
           </div>
         </div>
