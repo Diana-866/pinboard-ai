@@ -108,6 +108,11 @@ test("Windows replay rejects gaps or out-of-range migrations in the 010-166 chai
   assert.match(windowsScript, /\$actualMigrationSequence -ne \$expectedMigrationSequence/);
 });
 
+test("Windows migration replay summary reports the current 010-166 range", () => {
+  assert.match(windowsScript, /001 \+ 010-166/);
+  assert.doesNotMatch(windowsScript, /001 \+ 010-161/);
+});
+
 test("Windows replay always attempts cleanup after database creation", () => {
   assert.match(windowsScript, /finally \{[\s\S]*DROP DATABASE IF EXISTS \$database/);
 });
