@@ -4043,13 +4043,13 @@ npm.cmd test
 
 - **Status:** [ ] Awaiting owner/local runtime evidence.
 - **Base code:** `817ccb0de8b6ae042114418483412cf406eca035`.
-- **Changes:** financial reservation matching and payment-creation reconciliation now cap related-record reads at 1,001 rows and return HTTP 502 when the 1,001-row sentinel is reached; this prevents a REST-capped prefix from being treated as a complete unique match.
+- **Changes:** financial reservation matching and payment-creation reconciliation request 1,000 rows (999 possible matches plus a boundary row) and return HTTP 502 when the response reaches 1,000, because the REST API may cap there; this prevents a REST-capped prefix from being treated as a complete unique match.
 - **After syncing latest `main`, from repository root in PowerShell:**
   ```powershell
   cd backend
   node --test test/admin-financial-operations.test.js test/admin-payment-creation-requests.test.js test/test-inventory.test.js
   npm.cmd test
   ```
-- **Acceptance:** focused tests and full backend suite exit 0; each related lookup kind (generation, regeneration, subscriptions, credit purchases) fails closed at >1,000 rows; inventory is exactly 1,454 declarations (financial test file 10; payment-creation test file 14).
+- **Acceptance:** focused tests and full backend suite exit 0; each related lookup kind (generation, regeneration, subscriptions, credit purchases) fails closed at 1,000 returned rows; inventory is exactly 1,454 declarations (financial test file 10; payment-creation test file 14).
 - Report exact tested HEAD, commands, test summary and exit codes. Do not connect production Supabase, Prodamus, live payments, Storage or Pinterest.
 - **What this proves:** local Node regression only. It does not prove production data shape, provider behavior, CI runner availability, deployment or payment settlement.
