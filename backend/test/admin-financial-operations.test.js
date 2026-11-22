@@ -97,7 +97,7 @@ test("query parameter clamps are bounded and deterministic", () => {
  */
 const { TASKS_TRUNCATED_REASON, TASK_FETCH_LIMIT } = require("../adminFinancialOperations");
 
-function loadQueueWithTasks(taskRows) {
+function loadQueueWithTasks(taskRows, limit = 10) {
   const modulePathFresh = require.resolve("../adminFinancialOperations");
   const supabaseFresh = require.resolve("../supabase");
   const previousSupabase = require.cache[supabaseFresh];
@@ -113,12 +113,13 @@ function loadQueueWithTasks(taskRows) {
           eq() { return this; },
           lt() { return this; },
           order() { return this; },
-          limit() { return this; },
+          limit(value) { this.limitValue = value; return this; },
           in(column, values) { this.filterColumn = column; this.filterValues = values; return this; },
           then(resolve, reject) {
             let data = fixtures[table] || [];
             if (table === "pin_generation_tasks") data = taskRows;
             if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
+            if (Number.isFinite(this.limitValue)) data = data.slice(0, this.limitValue);
             return Promise.resolve({ data, error: null }).then(resolve, reject);
           },
         };
@@ -128,7 +129,7 @@ function loadQueueWithTasks(taskRows) {
   };
   delete require.cache[modulePathFresh];
   try {
-    return require("../adminFinancialOperations").getFinancialOperationsQueue({ limit: 10 });
+    return require("../adminFinancialOperations").getFinancialOperationsQueue({ limit });
   } finally {
     require.cache[supabaseFresh] = previousSupabase;
     if (previousModule) require.cache[modulePathFresh] = previousModule;
@@ -184,4 +185,23 @@ test("reservation queue reports truncation based on the fetched rows before slic
   assert.equal(result.reservations.length, 1, "the response stays within the requested category limit");
   assert.equal(result.counts.reservations, 1);
   assert.equal(result.truncated.reservations, true, "the extra fetched row proves the queue is truncated");
+});
+
+test("task truncation is scoped to the capped batch, not unrelated generation requests", async () => {
+  const original = fixtures.pin_generation_requests.slice();
+  try {
+    for (let id = 12; id <= 61; id += 1) {
+      fixtures.pin_generation_requests.push({ id, user_id: `user-${id}`, idempotency_key: `key-${id}`, status: "processing", created_at: oldTimestamp, updated_at: oldTimestamp });
+    }
+    const resolved = { status: "failed", provider_outcome_status: "failed", provider_refunded: true, provider_reconciled_at: oldTimestamp };
+    const rows = Array.from({ length: TASK_FETCH_LIMIT }, () => ({ generation_request_id: 11, ...resolved }));
+    rows.push({ generation_request_id: 61, ...resolved });
+    const result = await loadQueueWithTasks(rows, 100);
+    assert.equal(result.truncated.tasks, true, "the queue reports that at least one batch hit the cap");
+    assert.equal(result.generation[0].reason, TASKS_TRUNCATED_REASON);
+    assert.equal(result.generation[50].request_id, "61");
+    assert.equal(result.generation[50].reason, "reconciled_failure_awaiting_finalization");
+  } finally {
+    fixtures.pin_generation_requests.splice(0, fixtures.pin_generation_requests.length, ...original);
+  }
 });
