@@ -2302,3 +2302,6 @@ Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b
 - Source of evidence: terminal output pasted by the repository owner; not executed by the connector or CI.
 - UA-083 local runtime gate is closed for the tested checkout. Production integrations and Vercel deployment remain separate gates.
 - Detailed evidence: `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`.
+
+
+| AUD-415 | `docs/audits/AUD-415-admin-financial-reservation-truncation.md` | Financial admin queue bug: truncation flag was calculated after slicing; fix/test/inventory commits and runtime limitation recorded. |
