@@ -4,6 +4,8 @@ const { asError } = require("./dbErrors");
 const { readArrayQueryResult } = require("./fetchAllPages");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_MATCH_QUERY_ROWS = 1000;
+const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
 
 function parseLimit(value) {
   if (value === undefined || value === null || value === "") return 50;
@@ -60,15 +62,23 @@ async function listPaymentCreationRequests(query = {}, now = Date.now(), db = su
     const [subscriptionsResult, creditsResult] = await Promise.all([
       db.from("subscriptions")
         .select("id, user_id, provider_payment_id, plan, status, amount, currency")
-        .in("provider_payment_id", orderIds),
+        .in("provider_payment_id", orderIds)
+        .limit(MATCH_QUERY_LIMIT),
       db.from("credit_purchases")
         .select("id, user_id, provider_payment_id, package_id, status, amount, currency")
-        .in("provider_payment_id", orderIds),
+        .in("provider_payment_id", orderIds)
+        .limit(MATCH_QUERY_LIMIT),
     ]);
     if (subscriptionsResult.error) throw asError(subscriptionsResult.error);
     if (creditsResult.error) throw asError(creditsResult.error);
     subscriptionRows = readArrayQueryResult(subscriptionsResult);
     creditPurchaseRows = readArrayQueryResult(creditsResult);
+    // A capped lookup is not a complete reconciliation result. Fail closed rather than
+    // letting an unseen duplicate provider order appear to be a unique local payment.
+    if (subscriptionRows.length > MAX_MATCH_QUERY_ROWS ||
+        creditPurchaseRows.length > MAX_MATCH_QUERY_ROWS) {
+      throw httpError(502, "Слишком много совпадений для безопасной сверки. Требуется ручная проверка.");
+    }
   }
 
   const paymentByOrderId = new Map();
