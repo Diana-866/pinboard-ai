@@ -3998,3 +3998,15 @@ npm.cmd test
 **Safety:** use the repository test harness only. Do not connect to production Supabase, Prodamus, production Storage or Pinterest; do not use live payment IDs or credentials.
 
 **Status:** owner-reported local runtime acceptance completed 2026-11-22. Focused suite: 12 passed, 0 failed. Full `npm.cmd test`: 1437 passed, 0 failed, 1 skipped (exit completed). Exact output is recorded in `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`. This was run by the owner on the local Windows checkout, not by this connector or CI; production integration remains unverified.
+
+## UA-084 — Run AUD-415 admin financial reservation truncation regression
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Reason:** the assistant's current GitHub-only environment cannot execute the repository's Node test suite; static publication is not runtime acceptance.
+- **Base/fix commits:** source `7099c6fc313b24e05df72079ef390c79bd327acf`, test `15d5baecfe45362060254510102b1d9c1bf29b96`, inventory `f0c784b54002953417cbbaeaf105fed7185cfd52`.
+- **Command:** from a fresh checkout of current `main`, in `backend`:
+  ```powershell
+  node --test test/admin-financial-operations.test.js test/test-inventory.test.js
+  ```
+- **Expected:** the focused tests pass; inventory test confirms declarations are synchronized. Report the exact command, full summary, exit code and tested HEAD. Do not connect to production or run payment operations.
+- **What this proves:** only the local Node regression and inventory checks; not PostgreSQL replay, live provider behavior or deployment.
