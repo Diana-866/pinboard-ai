@@ -3892,3 +3892,18 @@ npm.cmd test
 **Acceptance:** all commands exit 0; in particular, malformed pins/schedules responses return 502 and the test harness records zero DELETE requests to `pin_review_queue`. Share only failing test names and sanitized error output. Do not use production credentials or production DB.
 
 **Status:** owner runtime acceptance pending (tracked with UA-076); no tests are claimed passed by static source review.
+
+
+### AUD-408 — schedule retry metadata regression acceptance
+
+After updating to current `main`, include the new schedule regression in the targeted command:
+
+```powershell
+cd backend
+node --test test/fetch-all-pages.test.js test/review-queue-route-contract.test.js test/pinterest-schedule-list-contract.test.js test/api-authenticated-reads.test.js test/test-inventory.test.js
+npm.cmd test
+```
+
+**Expected:** malformed attempts metadata keeps failed schedule visible, but `retryable=false` and `retry_reason=metadata_unavailable`. All tests must exit 0.
+
+**Status:** runtime acceptance pending; this session only re-fetched source/test/inventory and performed static assertions. Do not test against production database or Pinterest credentials.
