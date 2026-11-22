@@ -4199,3 +4199,24 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Runtime:** latest workflow jobs checked on `82e84cfed96c1b685ec18614489a5428957ea445` failed with no steps/logs. No runtime test PASS.
 - **Next:** continue review of additional backend/admin data-access contracts; local runtime evidence and the open storage migration gate remain release blockers.
 
+
+
+### 2026-11-22 — Duplicate payment reconciliation matches fail closed (AUD-414)
+
+- **Base:** `a0c0bd5d2bcd2a58a8a54a5fde07117dd06b67bb`.
+- **Finding:** `adminPaymentCreationRequests.js` stored subscription rows in a provider-order-ID map without checking whether the key already existed. Duplicate subscription rows could silently overwrite one another and create a false confident reconciliation match. Credit-purchase rows already rejected collisions.
+- **Fix:** subscription mapping now rejects an existing provider order ID with the same ambiguity error as the credit-purchase path. Regression test covers duplicate subscriptions and duplicate credit purchases using distinct local record IDs.
+- **Commits:** source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; regression `b9a9523044893b3060a44ee9dcbbc20be6ce1df2`; fixture correction `b64d0e69a8e4d64ddaf203aed72e34a31ce4c37c`; inventory `5047f7495e0a7f9d22901d4d9f640f19d1eb86bb`; audit `5edd090352beaf32a08a33b86de02e52fe78fa4b`; owner action `b6e211e0c93d64e0de99803749c8f10a97e77dbb`.
+- **Blobs:** source `c023ecee49caf106ad33d9d2bf34ab6e31c236a8`; test `cb51ee44ab048c567969a5c2ca8df8028910c41f`; inventory `0c31cc8d3a060d4a466304eb1fcd774ca366eada`.
+- **Static verification:** current source/test/inventory re-fetched; guard present; 12 actual test declarations and inventory 12; total inventory 1449. Audit and UA-083 published.
+- **Runtime/CI:** Node tests NOT RUN. Vercel status on code/inventory commit was pending and is not backend test evidence. No test PASS claimed. UA-083 records focused and full backend commands.
+- **Safety:** no production database, Prodamus, live payments, Storage, Pinterest, DNS or deployment touched.
+- **Next:** owner/local runtime acceptance UA-083; continue adjacent payment reconciliation and financial read-path review. Production release remains blocked by runtime acceptance, Actions runner availability and other existing release gates.
+
+## Working-period closeout — 2026-11-22 (AUD-414)
+
+- Main was inspected before edits; base `a0c0bd5d2bcd2a58a8a54a5fde07117dd06b67bb`.
+- Published focused source correction, regression, inventory and audit directly to `main`; current verified source/test/inventory blobs are recorded above.
+- Re-fetched changed files after publication; static assertions passed. Actual Node runtime was unavailable in this session; no runtime result is inferred.
+- Required documents synchronized: PROJECT_STATE (this entry), USER_ACTIONS (UA-083), DOCUMENTATION_REGISTER (AUD-414 entry). Latest final HEAD will be recorded by the documentation register synchronization commit.
+- Next action: run UA-083 locally, then continue reviewing remaining payment/admin reconciliation paths. No background work is claimed.
