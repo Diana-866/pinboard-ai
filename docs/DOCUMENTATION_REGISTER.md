@@ -2199,3 +2199,15 @@ Commits: code `afc394d904f082028d00ce0068414e4d73b9e1df`; HTTP test `94ae91a3d5b
 
 Commits: source `42e4546998d50944ff2ab486c0210e2d0484f3d2`; HTTP tests `e2cc97edee60e3267f07d8975c496f32ecd48233`; contract `dfc64df387d7a39f5ce4d84496c6c168a02a6f3f`; inventory `5e88940e1479639824c5411251a66dae8bfbfa9b`; state `421a62623b06ee3bd2817bde8ba524958d0f8139`; owner action `e1259e51f0f089dfd5823eb534847afaad18588e`. Runtime NOT RUN; UA-080 records the focused and full backend commands.
 
+### AUD-410 — billing subscription and email-outbox malformed reads fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/billing.js` | `2e3bdb5b8a593487aefea6209d0d35e3cc8e2c4e` | Strict subscription/user lookup arrays; strict outbox count and list envelopes |
+| `backend/test/api-authenticated-reads.test.js` | `e901b0958bde330bd31d0446c091a448caf81fcf` | Malformed admin subscription inventory returns 502 before secondary user lookup |
+| `backend/test/email-outbox.test.js` | `8caff235e2de7a1c17186f179fda0bef8bf6753a` | Malformed count and dead-row envelope regressions |
+| `backend/test/test-inventory.json` | `5cdd4c950908d5a7d7bc96cf3a8ca5d6661d36b3` | Inventory 1444 declarations |
+| `docs/audits/2026-11-22-billing-subscription-outbox-malformed-read-fail-closed.md` | created in commit `066fba1f0872bbd3fa78c3434c429aa589c6586f` | Root cause, fixes, test and verification boundary |
+
+Commits: implementation `63c383029b8e6ff4f3e92d54bd6167b43c745952`; API regression `b2cd1d445772cd24fbcccb84aff25ec9e5fc136d`; outbox regression `6fbcf5bfc68d8268e30e717b5d98903b4160ad19`; inventory `0223cb5eec423007fc9c6284f9c5dbd20d6b6d4c`; state `c0fb9299ccfd037c701912049892f5d931ac83cc`; owner action `08c91d0f9629fe6eded82cc8adbf77e9f165518f`. Runtime NOT RUN; UA-081 records focused and full backend commands.
+
