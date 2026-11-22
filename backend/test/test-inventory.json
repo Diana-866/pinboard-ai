@@ -1,13 +1,13 @@
 {
   "files": 175,
-  "total": 1457,
+  "total": 1458,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
     "account-deletion-worker-lifecycle.test.js": 8,
     "account-deletion-worker.test.js": 41,
     "account-lifecycle.test.js": 18,
-    "admin-access.test.js": 3,
+    "admin-access.test.js": 4,
     "admin-account-deletion-inventory.test.js": 12,
     "admin-financial-operations.test.js": 10,
     "admin-payment-creation-requests.test.js": 14,
