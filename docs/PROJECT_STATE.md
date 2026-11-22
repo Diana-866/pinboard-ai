@@ -4116,3 +4116,16 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Safety:** no production DB, production Storage, Prodamus, Pinterest, DNS or deployment touched.
 - **Next:** owner runtime acceptance UA-080/UA-076 on a local Node runner, then continue independent payment fulfillment and publication-path review. Do not retry Actions until runner allocation is restored or a working runner is available.
 
+### 2026-11-22 — Billing subscription and email-outbox malformed reads fail closed (AUD-410)
+
+- **Base:** `a5a1a3709f028a6a0a2d7629059a7fe647c00d18`.
+- **Finding:** user/admin subscription list reads and email-outbox health converted malformed successful query envelopes/counts into empty lists or zero. Admin could miss subscriptions, dead mail or queue backlog.
+- **Fix:** `backend/billing.js` uses shared `readArrayQueryResult` for subscription rows, user email join, outbox oldest/dead lists. Outbox count responses require a non-negative safe integer; malformed count/list returns 502.
+- **Regressions:** malformed admin subscription list returns 502 and does not proceed to users lookup; outbox health rejects malformed count and dead-row envelopes. Inventory 1442 → 1444.
+- **Commits:** implementation `63c383029b8e6ff4f3e92d54bd6167b43c745952`; API regression `b2cd1d445772cd24fbcccb84aff25ec9e5fc136d`; outbox regression `6fbcf5bfc68d8268e30e717b5d98903b4160ad19`; inventory `0223cb5eec423007fc9c6284f9c5dbd20d6b6d4c`; audit `066fba1f0872bbd3fa78c3434c429aa589c6586f`.
+- **Blobs:** billing `2e3bdb5b8a593487aefea6209d0d35e3cc8e2c4e`; API tests `e901b0958bde330bd31d0446c091a448caf81fcf`; outbox tests `8caff235e2de7a1c17186f179fda0bef8bf6753a`; inventory `5cdd4c950908d5a7d7bc96cf3a8ca5d6661d36b3`.
+- **Static verification:** re-fetched source/test/inventory; strict validators present; old empty/zero fallbacks absent in `backend/billing.js`; counts match (1444 total; API 114; outbox 6).
+- **Runtime:** NOT RUN. GitHub Actions on latest code/tests failed before steps (runner IDs 0; no logs). Vercel pending on inventory commit; no deployment PASS claimed.
+- **Safety:** no production database, provider, SMTP, Storage, Pinterest, DNS or deployment touched.
+- **Next:** UA-081/UA-080 focused and full backend runtime; continue payment history/reconciliation review.
+
