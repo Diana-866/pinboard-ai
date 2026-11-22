@@ -2186,3 +2186,16 @@ Commits: helper `8b80eff40db9e87e1bcd91c5a89cbaf0f1cdd3be`; route `9d6b1c9d04d99
 | `docs/audits/2026-11-22-schedule-retry-metadata-fail-closed.md` | created in commit `c7dc4a522d8e31e90bf305327fe42648f1eb6539` | Root cause, changes, evidence and runtime limitation |
 
 Commits: code `afc394d904f082028d00ce0068414e4d73b9e1df`; HTTP test `94ae91a3d5bef3b0d09536972956329ddba0c630`; contract `6978b9995c0f5327705d4ea823c1d734e21e667f`; inventory `cfe386007abe41ae4c3286eccf6826be96802872`; state `aeab804f3f38ad5a932f4c6d41e53ee90f9f2aca`; owner action `82a88c8876bc7d0be2c41ae94c0a8addef81e9be`. Runtime NOT RUN; UA-076 updated with targeted and full backend commands.
+
+### AUD-409 — billing inventory and schedule account recovery fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/index.js` | `d98404479adffa3d5dcca09528c72b33487b02fc` | Strict billing inventory arrays; strict schedule recovery metadata and account identity |
+| `backend/test/api-authenticated-reads.test.js` | `3c545e069a47921aefb753293a2e4b272b4e544a` | HTTP regressions for malformed webhook-exception and pending-order inventories |
+| `backend/test/pinterest-schedule-list-contract.test.js` | `9af064c4de7231d3e35b268546f79c98ca35d9de` | Contract regression for malformed schedule account-recovery metadata |
+| `backend/test/test-inventory.json` | `8cd88664b6882fc645153b13bbd03f96b30418e2` | Test inventory updated to 1442 declarations |
+| `docs/audits/2026-11-22-billing-inventory-malformed-read-fail-closed.md` | created in commit `6b36bf3dee26c233638bd8fcab3ca7a842f290d6` | Root cause, code changes, regression coverage and runtime boundary |
+
+Commits: source `42e4546998d50944ff2ab486c0210e2d0484f3d2`; HTTP tests `e2cc97edee60e3267f07d8975c496f32ecd48233`; contract `dfc64df387d7a39f5ce4d84496c6c168a02a6f3f`; inventory `5e88940e1479639824c5411251a66dae8bfbfa9b`; state `421a62623b06ee3bd2817bde8ba524958d0f8139`; owner action `e1259e51f0f089dfd5823eb534847afaad18588e`. Runtime NOT RUN; UA-080 records the focused and full backend commands.
+
