@@ -4369,3 +4369,24 @@ AUD-419's original commit-level acceptance was 10 declarations / 1,455 total. Su
 - Required source/test/inventory re-fetched; static declaration counts match.
 - Actions runner previously failed before steps; Vercel build-rate-limit remains an external blocker. No production DB, account deletion, payments, Pinterest, Storage, DNS or deployment touched.
 - **Next:** owner runs UA-088/089 locally on Node 22 and confirms the admin UI's new truncation field; continue independent code review. No background work claimed.
+
+
+### 2026-11-22 — Account-deletion inventory admin panel (AUD-422)
+
+- **Base:** `95ecb0611efc8e6a507add2ff24ee03a59aa24e3`.
+- **Finding:** the backend deletion inventory and AUD-420 truncation flag had no admin-panel consumer.
+- **Fix:** added `AdminAccountDeletionInventory`, GET-only `/admin/account-deletion/inventory?limit=50`, tab/render in `AdminPanel`, status/age/job list, strict response validation, explicit partial-queue warning and stale-data clearing on failed refresh.
+- **Regression:** frontend `adminPanelDataSafety.test.ts` checks the route, tab, truncation warning and no POST. Confirmed frontend test script includes `src/lib/*.test.ts`.
+- **Commits:** component `82986881a2a417795a7d786645bbf15995a58035`; panel `5c77e59f8d26b6407ff1ba108d275cc332ba1a97` and header `95ecb0611efc8e6a507add2ff24ee03a59aa24e3`; contract test `b08f477126531fddab6c71a8bfb41c0cb43fac6c` and assertion correction `7ec3871f90fc5fc45e7925ad5a4e830c33746cc7`; component validation `5530f90207c0470c683edf324c78b4df71086053`; audit `25f924129a555ec5cbd15626515c1a5e70781a49`; AUD-420 UI receipt `ad2a77f1e768e5df87173e828bbc344352b00cdf`; UA-090 `02704e1a772844d1db24538b77c63b3d482a2588`.
+- **Final blobs:** component `f975dee8970e959aefa247f0e95e5067407afe92`; AdminPanel `e4769e2719c96e1e3c3e3143eae77eebcbb0c1e9`; test `b447525bf0c2cf28c75fb759819b87a2b8433590`.
+- **Static verification:** route/tab/test/truncation/read-only/stale-clearing checks passed. Frontend tests and TypeScript/Vite build NOT RUN; UA-090 pending.
+- **Safety:** no production deletion, database, payment/provider, Pinterest, storage, DNS or deployment operation.
+
+## Working-period closeout — AUD-420 through AUD-422 (2026-11-22)
+
+- **HEAD before this state update:** `02704e1a772844d1db24538b77c63b3d482a2588`.
+- Current backend test inventory: 1,458 declarations; admin-access 4; account-deletion inventory 12. AUD-420 added sentinel truncation and strict row validation; AUD-422 now displays the partial queue explicitly.
+- AUD-419 null-response guard, AUD-420 truncation/row validation, AUD-421 admin DB error mapping and AUD-422 UI are published on main.
+- Runtime status: UA-088 (backend deletion inventory), UA-089 (admin auth), UA-090 (frontend tests/build) pending. No PASS claimed.
+- Actions runner allocation and Vercel build-rate-limit remain external release blockers. No production or external state changed.
+- **Next:** owner/local acceptance for UA-088/089/090; continue independent review after fresh HEAD and documentation checks. No background work claimed.
