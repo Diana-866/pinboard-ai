@@ -186,3 +186,26 @@ test("malformed successful reconciliation query envelopes fail closed at every q
     );
   }
 });
+
+
+test("duplicate local payment rows for one provider order fail closed within either payment kind", async () => {
+  for (const kind of ["subscriptions", "credit_purchases"]) {
+    reset();
+    const source = kind === "subscriptions" ? relatedRows.subscriptions : relatedRows.credit_purchases;
+    const row = kind === "subscriptions"
+      ? { ...source[0], provider_payment_id: "pp-test-order-0001" }
+      : {
+          id: "purchase-duplicate", user_id: "user-1", provider_payment_id: "pp-test-order-0001",
+          package_id: "pack_50", status: "pending", amount: 190, currency: "rub",
+        };
+    if (kind === "subscriptions") {
+      relatedRows.subscriptions = [source[0], row];
+    } else {
+      relatedRows.credit_purchases = [row, { ...row, id: "purchase-duplicate-2" }];
+    }
+    await assert.rejects(
+      listPaymentCreationRequests({}, Date.now(), db),
+      /linked to multiple local payment records/
+    );
+  }
+});
