@@ -3011,7 +3011,7 @@ app.get("/admin/storage/retention-candidates", adminActionLimiter, requireAuth, 
       p_limit: limit,
     });
     if (error) throw error;
-    res.json({ retention_days: days, read_only: true, candidates: data || [] });
+    res.json({ retention_days: days, read_only: true, candidates: readArrayQueryResult({ data, error }) });
   } catch (e) {
     handleError(res, e);
   }
