@@ -4166,3 +4166,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Documentation:** AUD-410/411/412 reports, PROJECT_STATE, USER_ACTIONS UA-081/082 and DOCUMENTATION_REGISTER updated. No production database, Prodamus, SMTP, Pinterest, Storage, DNS or deployment touched.
 - **Next:** owner runtime acceptance (UA-080/081/082); continue independent review of remaining payment history/admin read contracts. Release readiness remains blocked until actual tests, Vercel deployment and external payment/storage paths are verified.
 
+### 2026-11-22 — Payment-creation reconciliation validates all query arrays (AUD-413)
+
+- **Base:** `b28a6db7c3cf55dbba748ccffc6f11d52cd63edb`.
+- **Finding:** `adminPaymentCreationRequests.listPaymentCreationRequests` converted malformed successful results for payment creation requests, subscriptions and credit purchases into empty arrays. This could hide uncertain checkout requests or falsely report no local payment match.
+- **Fix:** all three reads use `readArrayQueryResult`; malformed data fails with 502. Added regression for malformed `null` response at each query stage. Inventory 1447 → 1448; test declarations 10 → 11.
+- **Commits:** source `866a82064770f545c2444cc510cf513c0a6f5c5e`; test `188a2e95daf9bfd6369f2f1b6671abae6b2c221b`; inventory `82e84cfed96c1b685ec18614489a5428957ea445`; audit `14a5601bfe6f8f1e1a40bd89617265263d1960d7`.
+- **Blobs:** source `fc5b15c820b672ebf34f7e7bbdef4438abc32f04`; test `a8797af161bfa6350f3f33de922c4f0464121baa`; inventory `a9686d81cd4c7ec8277b024e668459a66b0b9657`.
+- **Verification:** code/test/inventory publication to be re-fetched at closeout. Runtime NOT RUN; no PASS claimed.
+- **Safety:** no production DB, provider, live payment or deployment touched.
+- **Next:** continue adjacent admin payment/reconciliation read review; runtime acceptance remains owner/local action UA-081/082.
+
