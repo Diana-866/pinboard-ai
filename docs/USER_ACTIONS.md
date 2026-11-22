@@ -3936,7 +3936,7 @@ npm.cmd test
 
 ## UA-081 — runtime acceptance for AUD-410 billing/outbox and AUD-411 retention inventory reads
 
-**Why:** AUD-410 through AUD-412 close malformed successful database/RPC envelopes that previously appeared as empty subscription, email-outbox, storage retention, financial reconciliation or credit history results. Code and regression declarations are published; runtime remains unverified because GitHub Actions has no runner.
+**Why:** AUD-410 through AUD-413 close malformed successful database/RPC envelopes that previously appeared as empty subscription, email-outbox, storage retention, financial reconciliation or credit history results. Code and regression declarations are published; runtime remains unverified because GitHub Actions has no runner.
 
 **After pulling current `main`, from repository root in PowerShell:**
 
@@ -3952,8 +3952,9 @@ npm.cmd test
 - malformed `list_pin_image_retention_candidates` RPC returns 502, no candidates array, and no mutations;
 - financial reconciliation rejects malformed primary/task/secondary matching reads (six tested positions);
 - malformed credit purchase history returns 502 before balance derivation;
+- admin payment-creation reconciliation rejects malformed request/subscription/credit-purchase arrays at each query stage with 502;
 - focused and full backend tests exit 0;
-- inventory total matches 1447 declarations.
+- inventory total matches 1448 declarations.
 
 **Safety:** run only with the test harness/local disposable configuration. Do not use production Supabase, Prodamus, SMTP, Pinterest or Storage credentials.
 
