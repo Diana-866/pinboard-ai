@@ -2222,3 +2222,16 @@ Commits: implementation `63c383029b8e6ff4f3e92d54bd6167b43c745952`; API regressi
 
 Commits: route `f7d6ade5601db604b1eb7dfc778aa21769f2bca9`; regression `1d78395fb5c0a542e3146ee2971edf0fd7d4edd6`; inventory `c8f0835a5907863af4f9481c765c4c7a16b7d499`; state `55831c3ae64601581c97fb4a8e17eda1f95e204d`; owner action `bc9d5494f3c70dbbd31b053524416bf9c150d9bd`. Runtime NOT RUN; UA-081 includes storage/admin and full backend commands.
 
+### AUD-412 — financial reconciliation and credit history malformed reads fail-closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/adminFinancialOperations.js` | `a6359ee7e91bb695c5aa6fabc692bc4d93513b27` | Strict arrays for primary financial inventory, task batches and secondary request matching |
+| `backend/creditsBilling.js` | `24bca345435b20a17e8cb5f0796eca890d6f6d98` | Credit purchase history uses shared array validator |
+| `backend/test/admin-financial-operations.test.js` | `d44821f16951e63d653c6ab6d528d5151e42e1ff` | Six malformed query-position regression scenarios |
+| `backend/test/api-authenticated-reads.test.js` | `6f53d93ad39b9c8b4437fca20f26dd425a8063c6` | Malformed credit history HTTP 502 regression |
+| `backend/test/test-inventory.json` | `38601e89955dfd518eb9755ee8f716beac4c78d9` | Inventory 1447 declarations |
+| `docs/audits/2026-11-22-financial-reconciliation-malformed-reads.md` | created in commit `f042bf92967042031f8a5c98d47bfc8660b2e473` | Root cause, implementation and verification boundary |
+
+Commits: financial implementation `0958b429a9d559ee621dea48c6360afe7b2c4251`; financial tests `78698054d968483de3006d1cfbed315854eb33a0`; credit implementation `d08d535056b611b38133883f4131cafed7174866`; credit test `b31b1f4acc184cd889fcb1d86550f1e7dcc44148`; inventory `19c883abb7811fc0ba7307fc99b267a5e3a73e95`; state `65e80aed5a3ca1507c094b3df1f819c35d3769f2`; owner action `25f9247bee4987dd28abee6bf9f8397d3d75a692`. Runtime NOT RUN; UA-081 records focused/full suite.
+
