@@ -13,6 +13,7 @@ const calls = [];
 let rows = [];
 let relatedRows = { subscriptions: [], credit_purchases: [] };
 let queryErrors = {};
+let malformedResults = {};
 const db = {
   from(table) {
     const call = { table };
@@ -23,7 +24,9 @@ const db = {
       order(column, options) { call.order = { column, options }; return this; },
       limit(value) { call.limit = value; return this; },
       then(resolve, reject) {
-        const data = table === "payment_creation_requests" ? rows : (relatedRows[table] || []);
+        const data = Object.hasOwn(malformedResults, table)
+          ? malformedResults[table]
+          : (table === "payment_creation_requests" ? rows : (relatedRows[table] || []));
         return Promise.resolve({ data, error: queryErrors[table] || null }).then(resolve, reject);
       },
     };
@@ -34,6 +37,7 @@ const db = {
 function reset() {
   calls.length = 0;
   queryErrors = {};
+  malformedResults = {};
   relatedRows = {
     subscriptions: [{
       id: "subscription-1", user_id: "user-1", provider_payment_id: "pp-test-order-0001",
@@ -170,4 +174,15 @@ test("a matched payment is shown without the internal owner column", async () =>
   // id nor the record kind is needed to act on the row.
   assert.equal(Object.hasOwn(item, "local_user_id"), false, "the join column must not reach the admin payload");
   assert.equal(Object.hasOwn(item, "matched_record_kind"), false);
+});
+
+test("malformed successful reconciliation query envelopes fail closed at every query stage", async () => {
+  for (const table of ["payment_creation_requests", "subscriptions", "credit_purchases"]) {
+    reset();
+    malformedResults[table] = null;
+    await assert.rejects(
+      listPaymentCreationRequests({}, Date.now(), db),
+      (error) => error.httpStatus === 502
+    );
+  }
 });
