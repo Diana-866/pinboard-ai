@@ -1,6 +1,6 @@
 {
   "files": 175,
-  "total": 1439,
+  "total": 1442,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -26,7 +26,7 @@
     "analytics.test.js": 10,
     "analyze-prompt-context.test.js": 5,
     "analyze-site-failure.test.js": 5,
-    "api-authenticated-reads.test.js": 111,
+    "api-authenticated-reads.test.js": 113,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
     "auth.test.js": 20,
@@ -110,7 +110,7 @@
     "pinterest-refresh-recovery.test.js": 10,
     "pinterest-refresh.test.js": 21,
     "pinterest-routes-behaviour.test.js": 17,
-    "pinterest-schedule-list-contract.test.js": 2,
+    "pinterest-schedule-list-contract.test.js": 3,
     "pinterest-schedule-request.test.js": 6,
     "pinterest-schedule.test.js": 61,
     "pinterest-scheduler-health.test.js": 2,
