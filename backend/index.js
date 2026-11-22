@@ -2257,17 +2257,28 @@ app.get("/schedule", requireAuth, async (req, res) => {
       )),
     ]);
     const metadataResults = [...attemptsResults, ...publicationsResults, ...accountsResults];
-    const metadataError = metadataResults.find((result) => result.error)?.error;
+    const metadataUnavailableRows = () => rows.map((row) => row.status === "failed"
+      ? sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: "metadata_unavailable", failure_reason: getScheduleFailureReason(row) })
+      : sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null }));
+    const metadataError = metadataResults.find((result) => result && result.error)?.error;
     if (metadataError) {
       logError("index.event_006");
-      return res.json(rows.map((row) => row.status === "failed"
-        ? sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: "metadata_unavailable", failure_reason: getScheduleFailureReason(row) })
-        : sanitizeScheduleForClient({ ...row, retryable: false, retry_reason: null, failure_reason: null })));
+      return res.json(metadataUnavailableRows());
     }
 
-    const attempts = attemptsResults.flatMap((result) => result.data || []);
-    const publications = publicationsResults.flatMap((result) => result.data || []);
-    const activeAccountIds = new Set(accountsResults.flatMap((result) => result.data || []).map((account) => String(account.id)));
+    let attempts;
+    let publications;
+    let activeAccountIds;
+    try {
+      attempts = attemptsResults.flatMap(readArrayQueryResult);
+      publications = publicationsResults.flatMap(readArrayQueryResult);
+      activeAccountIds = new Set(accountsResults.flatMap(readArrayQueryResult).map((account) => String(account.id)));
+    } catch {
+      // Missing/malformed retry metadata is not evidence that a Pinterest publish
+      // was never accepted. Keep the schedule visible but disable retry actions.
+      logError("index.event_006");
+      return res.json(metadataUnavailableRows());
+    }
     // Index retry metadata once. Re-scanning every attempt/publication/schedule
     // for every failed row turns a large calendar into quadratic work.
     const identityKey = (...parts) => JSON.stringify(parts.map((part) => String(part || "")));
