@@ -25,15 +25,15 @@ If a result exceeded the backend REST row cap, the API could return a prefix. In
 
 | Change | Commit |
 |---|---|
-| Financial reservation match bound/guard | `3149361bb8303ac23ea9722eb0ec57a11d2dc459` |
-| Payment reconciliation match bound/guard | `095ac7f6973b27617e1a083668a3e9e6ca4288c9` |
-| Financial regression | `2e676b0e22815453357285b02853cc34d2b70533` |
-| Payment regression | `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7` |
+| Financial reservation match bound/guard | `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; cap correction `649f6b7ab7a8bd8c442b44fc503a31bc18a52d5e`; explicit cap `18ddcfc23a66d38240e1ebd84afd8c01430de633` |
+| Payment reconciliation match bound/guard | `095ac7f6973b27617e1a083668a3e9e6ca4288c9`; cap correction `3672f618d95c2909fcb489b3c642e76b812010fb`; explicit cap `cd537c3cdb86f51f8c6c63dcc44de90d4720def6` |
+| Financial regression | `2e676b0e22815453357285b02853cc34d2b70533`; boundary correction `39ace6f215d1c15dffdc61673078882101ba6171` |
+| Payment regression | `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7`; boundary correction `4a4d7faaf31cf610c71c74c677e6b86950069083` |
 | Test inventory | `1af375d1bb45fa54e502c688e726cd46d7f5a933` |
 
 Current verified blobs (after boundary correction):
-- `backend/adminFinancialOperations.js`: `de615be8e17534bf9c3fe3f4d204cac79c976583`
-- `backend/adminPaymentCreationRequests.js`: `313dd3f3756dcf4e9a3b4f2ad7a21b1e9f7e7d4f`
+- `backend/adminFinancialOperations.js`: `270da09358bc35f3bd13ed783a1fb328b333259e`
+- `backend/adminPaymentCreationRequests.js`: `0b174793b2e220f79ab8f2fd899b7e82719369ed`
 - `backend/test/admin-financial-operations.test.js`: `a68de96496f757a771e51a9536f83150337aa4e4`
 - `backend/test/admin-payment-creation-requests.test.js`: `e20b087499938fb75cfd23cb8be52fad2d34645e`
 - `backend/test/test-inventory.json`: `af7f640c0258d68321137767bfbb71c3cb9811c8`
