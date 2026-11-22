@@ -1,6 +1,6 @@
 {
-  "files": 181,
-  "total": 1503,
+  "files": 182,
+  "total": 1508,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -144,6 +144,7 @@
     "review-queue-reconciliation.test.js": 4,
     "review-queue-route-contract.test.js": 3,
     "review-queue-validation.test.js": 4,
+    "rls-policy-contract.test.js": 5,
     "route-auth-coverage.test.js": 5,
     "route-ownership-coverage.test.js": 5,
     "safe-logger.test.js": 12,
