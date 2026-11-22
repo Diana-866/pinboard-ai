@@ -3933,3 +3933,25 @@ npm.cmd test
 
 **Status:** awaiting local runtime evidence. No Node test PASS is claimed from static GitHub review.
 
+## UA-081 — runtime acceptance for AUD-410 subscription and email-outbox reads
+
+**Why:** AUD-410 closes malformed successful database envelopes that previously appeared as empty subscription or email-outbox inventories. Code and regression declarations are published; runtime remains unverified because GitHub Actions has no runner.
+
+**After pulling current `main`, from repository root in PowerShell:**
+
+```powershell
+cd backend
+node --test test/api-authenticated-reads.test.js test/email-outbox.test.js test/test-inventory.test.js
+npm.cmd test
+```
+
+**Acceptance:**
+- malformed admin `subscriptions` response returns HTTP 502 and does not query the secondary `users` email lookup;
+- malformed email outbox count and dead-row envelopes fail with HTTP 502, never a zero/empty health report;
+- focused and full backend tests exit 0;
+- inventory total matches 1444 declarations.
+
+**Safety:** run only with the test harness/local disposable configuration. Do not use production Supabase, Prodamus, SMTP, Pinterest or Storage credentials.
+
+**Status:** pending owner/local runtime evidence; no tests are claimed passed.
+
