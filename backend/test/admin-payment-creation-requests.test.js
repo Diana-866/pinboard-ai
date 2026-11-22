@@ -24,9 +24,10 @@ const db = {
       order(column, options) { call.order = { column, options }; return this; },
       limit(value) { call.limit = value; return this; },
       then(resolve, reject) {
-        const data = Object.hasOwn(malformedResults, table)
+        let data = Object.hasOwn(malformedResults, table)
           ? malformedResults[table]
           : (table === "payment_creation_requests" ? rows : (relatedRows[table] || []));
+        if (table === "payment_creation_requests" && Number.isFinite(call.limit)) data = data.slice(0, call.limit);
         return Promise.resolve({ data, error: queryErrors[table] || null }).then(resolve, reject);
       },
     };
@@ -68,7 +69,7 @@ test("admin inventory is read-only, bounded and excludes checkout secrets", asyn
     columns: "id, provider_order_id, user_id, request_kind, status, error_code, created_at, updated_at",
     filter: { column: "status", values: ["unknown", "creating"] },
     order: { column: "updated_at", options: { ascending: true } },
-    limit: 10,
+    limit: 11,
   });
   assert.equal(calls.length, 3);
   assert.deepEqual(calls[1].filter, { column: "provider_payment_id", values: ["pp-test-order-0001"] });
@@ -208,4 +209,14 @@ test("duplicate local payment rows for one provider order fail closed within eit
       /linked to multiple local payment records/
     );
   }
+});
+
+
+test("payment creation inventory reports a truncated queue without returning the extra row", async () => {
+  reset();
+  const result = await listPaymentCreationRequests({ limit: 1 }, Date.now(), db);
+  assert.equal(calls[0].limit, 2, "fetch one extra row to detect truncation");
+  assert.equal(result.count, 1);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.truncated, true);
 });
