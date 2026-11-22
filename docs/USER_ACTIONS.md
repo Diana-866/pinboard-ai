@@ -4023,3 +4023,17 @@ npm.cmd test
 - **Safety:** local test only; do not use production DB or invoke payment/provider operations.
 
 - **CI receipt (2026-11-22, main):** runs `45036779163` (postgres-atomicity) and `45036779042` (frontend/backend) on code/inventory commit `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3` completed failure with `runner_id=0` and no steps. No workflow command executed. Vercel current status is `failure` / `build-rate-limit`; owner must resolve runner allocation/account quota separately. This is not a code test result.
+
+
+## UA-086 — Run payment-creation queue truncation regression (AUD-417)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **After syncing latest `main`, from repository root in PowerShell:**
+  ```powershell
+  cd backend
+  node --test test/admin-payment-creation-requests.test.js test/test-inventory.test.js
+  npm.cmd test
+  ```
+- **Acceptance:** focused and full backend suites exit 0; test verifies limit=1 fetches a second sentinel row, returns exactly one item and reports `truncated=true`; inventory reports 13 declarations for `admin-payment-creation-requests.test.js` and total 1452.
+- Report exact tested HEAD, command, test summary and exit code. Use test harness only; do not connect to production Supabase, Prodamus, Storage or real payment records.
+- **What this proves:** local Node regression only, not provider or production acceptance.
