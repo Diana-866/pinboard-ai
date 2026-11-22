@@ -2115,3 +2115,8 @@ Code base `b32597409054ce2b2fedc7732369a81b2edb21d5`; documentation-only main HE
 
 Inventory verified from GitHub tree: 157 active migrations, 010–166, no gaps. Node/PostgreSQL runtime NOT RUN. UA-077 is the local disposable-DB acceptance gate.
 
+
+### AUD-404 test regex correction
+
+Post-publication static review caught and corrected a double-escaped regex in the new migration inventory regression test. The corrected test pattern is `/^\d{3}_.+\.sql$/`. Runtime remains NOT RUN; correction commit and final test blob will be verified after publication.
+

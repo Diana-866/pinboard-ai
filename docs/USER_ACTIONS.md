@@ -3840,3 +3840,8 @@ npm.cmd test
 
 **Статус:** ожидается; runtime результат пока отсутствует.
 
+
+### AUD-404 review correction — 2026-11-22
+
+После re-fetch опубликованного diff заметил ошибку экранирования в новом inventory test: regex был double-escaped. Исправил на JS regex с одним escape для digit/extension. Скрипты verification корректно ожидают 010–166; test runtime всё ещё NOT RUN. Correction публикуется вместе с обновлённым audit/register/state.
+

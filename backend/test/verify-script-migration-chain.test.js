@@ -12,7 +12,7 @@ const windowsScript = fs.readFileSync(path.join(scriptsDirectory, "verify.ps1"),
 test("active repository migrations are contiguous from 010 through 166", () => {
   const migrationDirectory = path.join(__dirname, "..", "..", "db", "migrations");
   const actual = fs.readdirSync(migrationDirectory)
-    .filter((name) => /^\\d{3}_.+\\.sql$/.test(name) && Number(name.slice(0, 3)) >= 10)
+    .filter((name) => /^\d{3}_.+\.sql$/.test(name) && Number(name.slice(0, 3)) >= 10)
     .map((name) => name.slice(0, 3))
     .sort();
   const expected = Array.from({ length: 157 }, (_, index) => String(index + 10).padStart(3, "0"));

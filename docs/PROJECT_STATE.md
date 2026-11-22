@@ -4016,3 +4016,10 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Production safety:** миграции не применялись ни к production, ни к Supabase; проверка предназначена только для локальной disposable PostgreSQL.
 - **Владелец:** UA-077 — локально выполнить migration-only replay при наличии PostgreSQL.
 - **Следующий шаг:** проверить source/test publication и актуальный SHA; после этого дождаться локального или рабочего CI runtime результата.
+
+### AUD-404 post-commit review — исправлено экранирование inventory test
+
+- При обязательном review commit `4ff3b3509d103ae27d945c1faf7bb2e289112428` обнаружено: новый JS regex был double-escaped и искал буквальный `\\d`, а не numeric prefix.
+- Исправлено в regression test: теперь pattern `/^\d{3}_.+\.sql$/` корректно отбирает миграционные filenames. Linux/Windows script range fix не затронут.
+- Это была ошибка тестового fixture, пойманная статическим review до runtime; не считать тест пройденным. Новый test blob и final commit будут записаны после публикации.
+

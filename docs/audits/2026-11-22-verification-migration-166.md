@@ -27,3 +27,8 @@ This only updates disposable local verification logic. No SQL migration was chan
 ## Release boundary
 
 Runtime remains NOT VERIFIED until a local `npm test` and `scripts/verify.ps1 -MigrationsOnly` (or Linux equivalent) execute successfully. GitHub Actions runner allocation is currently failing before any steps start. Owner action UA-077 records the safe local migration replay.
+
+## Post-publication review correction
+
+Static review of commit `4ff3b3509d103ae27d945c1faf7bb2e289112428` caught a double-escaped JavaScript regex in the newly added inventory test. It would have matched a literal backslash sequence instead of migration prefixes. Corrected to `/^\d{3}_.+\.sql$/` in the follow-up commit. This correction was made before any claim of runtime PASS; Node/PostgreSQL tests remain NOT RUN.
+
