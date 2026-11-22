@@ -17,6 +17,7 @@ const { persistWebhookException } = require("./billingWebhookAudit");
 const { persistProviderReceipt, setProviderDecision } = require("./paymentProviderReceipts");
 const { httpError, validateEnum } = require("./validate");
 const { paymentLinkNotSaved, paymentOrderPreparationFailed, paymentsNotConfigured, paymentNotStarted } = require("./paymentErrors");
+const { readArrayQueryResult } = require("./fetchAllPages");
 const { CREDIT_PACKS, normalizePackId, packAmount } = require("./creditPacks");
 const { createPaymentOrderId } = require("./paymentOrderId");
 const { beginPaymentCreation, attachPaymentCreationOrder, denyUnsentPaymentRecord, completePaymentCreation, settlePaymentCreationRequest, markPaymentCreationUnknown, failPaymentCreation, handlePaymentProviderFailure } = require("./paymentCreationIdempotency");
@@ -373,7 +374,7 @@ async function handleCreditsWebhook(req, res, dependencies = {}) {
 
 /** История покупок кредитов пользователя (кабинет → «Тарифы» → «Кредиты») */
 async function listUserCreditPurchases(userId, limit = 20) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("credit_purchases")
     .select(
       "id, package_id, pack_title, credits, status, amount, currency, paid_at, balance_credited_at, created_at, provider_payment_id"
@@ -381,10 +382,10 @@ async function listUserCreditPurchases(userId, limit = 20) {
     .eq("user_id", String(userId))
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) {
+  if (result.error) {
     throw httpError(500, "Не удалось получить покупки — примените миграцию 007");
   }
-  return data || [];
+  return readArrayQueryResult(result);
 }
 
 module.exports = {
