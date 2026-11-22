@@ -4240,3 +4240,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Evidence and boundary: `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md`.
 - Previous main HEAD used for the owner run: `7661695f94e4eeded5e89d3928fc8262349ef0ce`.
 - No production database, Prodamus, real payment, Storage, Pinterest, DNS or deployment action was performed.
+
+### 2026-11-22 — Admin financial reservation truncation flag (AUD-415)
+
+- **Base:** `51af46261154ab228fc44b316a73082da032b74b`.
+- **Finding:** financial queue fetched `limit + 1` reservations but computed `truncated.reservations` from the post-slice mapped list, hiding that more rows existed.
+- **Fix:** response mapping renamed to `reservationItems`; truncation remains based on the original fetched rows. Response list/count still respect the category limit.
+- **Regression:** focused test exercises limit=1 with two fixture reservations; test query mock now honors `.limit()`. Inventory 1449 → 1450; admin financial test declarations 7 → 8.
+- **Commits:** source `7099c6fc313b24e05df72079ef390c79bd327acf`; test `15d5baecfe45362060254510102b1d9c1bf29b96`; inventory `f0c784b54002953417cbbaeaf105fed7185cfd52`; audit `858eff56cc897478783ffd02f12cf7820b668bca`.
+- **Verification:** source/test/inventory re-fetched; static contract and counts checked. Node runtime NOT RUN; UA-084 required. No production systems touched.
+- **Next:** continue financial/admin reconciliation review; existing DB, Storage, deployment and owner-runtime gates remain.
