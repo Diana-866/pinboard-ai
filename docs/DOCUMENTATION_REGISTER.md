@@ -2103,3 +2103,15 @@ Code base `b32597409054ce2b2fedc7732369a81b2edb21d5`; documentation-only main HE
 - CI jobs `137233202645`, `137233202903`, `137233202516`: all runner allocation failure (`runner_id=0`, no steps). Vercel was pending at the latest status query; no deployment claim.
 - Docs closeout is being committed on top of verified main `f84885b0c0b8f07f38c897d0a2f5946c7afd0d43`; final ref must be re-fetched after update.
 
+
+### AUD-404 — verification migration sequence 010–166 (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `scripts/verify.sh` | source commit closeout | Linux migration replay now expects contiguous 010–166 / 157 active files |
+| `scripts/verify.ps1` | source commit closeout | Windows replay now expects 010–166 / 157 active files |
+| `backend/test/verify-script-migration-chain.test.js` | source commit closeout | Script contracts updated; direct inventory test rejects gaps/count drift |
+| `docs/audits/2026-11-22-verification-migration-166.md` | source commit closeout | Root cause, exact tree evidence and runtime boundary |
+
+Inventory verified from GitHub tree: 157 active migrations, 010–166, no gaps. Node/PostgreSQL runtime NOT RUN. UA-077 is the local disposable-DB acceptance gate.
+

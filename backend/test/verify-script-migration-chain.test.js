@@ -9,6 +9,16 @@ const scriptsDirectory = path.join(__dirname, "..", "..", "scripts");
 const script = fs.readFileSync(path.join(scriptsDirectory, "verify.sh"), "utf8");
 const windowsScript = fs.readFileSync(path.join(scriptsDirectory, "verify.ps1"), "utf8");
 
+test("active repository migrations are contiguous from 010 through 166", () => {
+  const migrationDirectory = path.join(__dirname, "..", "..", "db", "migrations");
+  const actual = fs.readdirSync(migrationDirectory)
+    .filter((name) => /^\\d{3}_.+\\.sql$/.test(name) && Number(name.slice(0, 3)) >= 10)
+    .map((name) => name.slice(0, 3))
+    .sort();
+  const expected = Array.from({ length: 157 }, (_, index) => String(index + 10).padStart(3, "0"));
+  assert.deepEqual(actual, expected);
+});
+
 test("Linux replay creates a unique disposable database without pre-dropping a name", () => {
   assert.match(script, /MIGRATION_DB_NAME="pinposy_verify_\$\{BASHPID:-\$\$\}_\$suffix"/);
   assert.match(script, /od -An -N4 -tx1 \/dev\/urandom/);
@@ -29,8 +39,8 @@ test("Linux replay uses an explicit local socket and port, not inherited PGHOST 
 });
 
 test("Linux replay rejects incomplete or out-of-range migration sequences", () => {
-  assert.match(script, /version=10; version<=165/);
-  assert.match(script, /active_migrations\[@\].*152/s);
+  assert.match(script, /version=10; version<=166/);
+  assert.match(script, /active_migrations\[@\].*157/s);
   assert.match(script, /actual_sequence.*expected_sequence/s);
 });
 
@@ -83,16 +93,16 @@ test("Windows migration replay pins every psql connection to explicit loopback h
   assert.ok(psqlCalls.every((call) => /"127\.0\.0\.1".*"\$PostgresPort"/.test(call)));
 });
 
-test("Windows replay applies stubs, canonical baseline, then exactly 152 active migrations", () => {
+test("Windows replay applies stubs, canonical baseline, then exactly 157 active migrations", () => {
   assert.match(windowsScript, /db\/supabase-stub\.sql/);
   assert.match(windowsScript, /001_baseline\.sql/);
   assert.match(windowsScript, /-ge 10/);
-  assert.match(windowsScript, /-ne 152/);
+  assert.match(windowsScript, /-ne 157/);
   assert.match(windowsScript, /foreach \(\$migration in \$activeMigrations\)/);
 });
 
-test("Windows replay rejects gaps or out-of-range migrations in the 010-165 chain", () => {
-  assert.match(windowsScript, /10\.\.161/);
+test("Windows replay rejects gaps or out-of-range migrations in the 010-166 chain", () => {
+  assert.match(windowsScript, /10\.\.166/);
   assert.match(windowsScript, /expectedMigrationSequence/);
   assert.match(windowsScript, /actualMigrationSequence/);
   assert.match(windowsScript, /\$actualMigrationSequence -ne \$expectedMigrationSequence/);

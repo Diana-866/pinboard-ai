@@ -4005,3 +4005,14 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Vercel:** на момент проверки combined status `pending`; не считать deployment завершённым.
 - **Публикация:** main ref подтверждён на source/test commit до этого документационного closeout. История не переписывалась; первая попытка commit на устаревшем parent `e73ffb4766172bda61dfef795b05d1e456e0e7ca` не вошла в main; после refresh выполнен корректный commit поверх актуального `d9ad180...`.
 - **Открыто:** UA-075 и UA-076; PR #96 остаётся open. Следующий безопасный шаг — локальный backend test suite/runner, затем отдельно reconcile PR #96 без storage cutover.
+
+### 2026-11-22 — Verification gate синхронизирован с миграцией 166 (AUD-404)
+
+- **Base main:** `e76f9d8704282800faab8306efdfc10ed07b1d3b`.
+- **Подтверждённый инвентарь:** GitHub tree содержит 157 active migrations `010–166`, без пропусков; `166_user_terms_consent.sql` присутствует.
+- **Дефект:** Linux verify требовал `010–165` / 152 файла; Windows verify — `010–161` / 152 файла. Корректная текущая схема не проходила preflight migration replay.
+- **Исправление:** оба скрипта теперь требуют contiguous `010–166` / 157 файлов; Linux diagnostic count исправлен. Contract test обновлён и дополнен проверкой реального списка файлов.
+- **Проверка:** static diff and migration tree inventory verified; Node/PostgreSQL runtime NOT RUN. Не считать gate runtime PASS.
+- **Production safety:** миграции не применялись ни к production, ни к Supabase; проверка предназначена только для локальной disposable PostgreSQL.
+- **Владелец:** UA-077 — локально выполнить migration-only replay при наличии PostgreSQL.
+- **Следующий шаг:** проверить source/test publication и актуальный SHA; после этого дождаться локального или рабочего CI runtime результата.

@@ -3816,3 +3816,27 @@ npm.cmd test
 - Vercel combined status на source commit был `pending` при проверке. Deployment не подтверждён.
 - Никаких production actions не выполнялось. UA-075 / UA-076 остаются за владельцем.
 
+
+### Журнал ассистента — 2026-11-22 (AUD-404, migration verification)
+
+| Действие | Результат | Ограничение / следующий шаг |
+|---|---|---|
+| Проверил main HEAD `e76f9d8704282800faab8306efdfc10ed07b1d3b`, scripts и migration-chain contract test | Linux ожидал 010–165; Windows ожидал 010–161 | Проблема воспроизведена по актуальному коду |
+| Проверил GitHub recursive tree `db/migrations` | 157 active files, 010–166, gaps=[]; 166 присутствует | Не подключался к БД |
+| Исправил обе платформы и добавил direct inventory regression | Контракт теперь соответствует текущему migration set | Node/PostgreSQL runtime не запускался |
+| Обновил AUD-404, state, register и этот журнал | Причина, diff и проверочная граница записаны | Дождаться source/test commit SHA и повторного fetch |
+
+### UA-077 — локально проверить migration replay после исправления verify scripts
+
+**Только на локальной disposable PostgreSQL, не production:**
+
+Из корня репозитория в PowerShell:
+
+```powershell
+.\scripts\verify.ps1 -MigrationsOnly
+```
+
+Скрипт создаёт уникальную временную БД на `127.0.0.1`, применяет stubs + baseline + migrations 010–166 и удаляет только созданную им БД. Если PostgreSQL/psql не настроены, не направляйте команду на удалённую или production БД.
+
+**Статус:** ожидается; runtime результат пока отсутствует.
+
