@@ -1,7 +1,7 @@
 # PinPosy — единый паспорт проекта и план работ
 
 > Назначение: единая точка правды для разработки. Обновлять этот файл после каждого завершённого пункта. Не считать задачу выполненной без проверяемого результата.
-> Статус документа: начальная версия. Полный построчный аудит всех файлов ещё НЕ завершён.
+> Статус документа: актуализирован 2026-11-22; полный построчный аудит всех файлов и runtime-проверка ещё НЕ завершены.
 > Дата начальной фиксации: 2026-11-16.
 
 ## 0. Правила ведения проекта
@@ -3954,3 +3954,17 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Факты, на которых стоит план:** сайт и `/health` отвечают `200`; юридические тексты только `ru`/`en`; тарифы `start`/`pro`; пакеты кредитов 100/500/1000; 9 модулей админки; фоновые процессы `scheduleWorker`, `scheduleCron`, `accountDeletionWorker`.
 - **Записано как незакрытое:** публикация в Pinterest и оплата ни разу не проходили вживую, staging отсутствует, юридические тексты на 2 языках из 7. Оценка: ~82 % технически, ~55 % к приёму денег.
 - **Реестр:** 484–486. Раздел 160.
+
+
+### 2026-11-22 — Регистрация не должна терять обязательную отметку согласия (AUD-402)
+
+- **Актуальный base перед исправлением:** `main` `5486a264f61acf5ec0dc26a74266201279325fea`.
+- **Корневая причина:** fallback регистрации считал `terms_accepted_at` необязательной profile-column. При отсутствующей миграции 166 повторная вставка создавала пользователя без timestamp. Даже ошибка по `name`/другому optional profile field запускала fallback без всех profile fields, включая consent.
+- **Исправление:** `backend/auth.js` теперь fail-closed при ошибке отсутствующей `terms_accepted_at`: controlled 503 до retry; аккаунт и verification token не создаются. Retry для старой схемы сохраняет серверный timestamp.
+- **Регрессия:** `backend/test/auth.test.js` расширен: optional-column retry проверяет валидный timestamp; отдельный тест missing consent column требует ровно одну попытку вставки, 0 users и 0 verification tokens.
+- **Коммиты:** source `91e6edf09ca5eefe611556bb0bb70f176d3fc0ab`; tests `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd`; audit `097eefc38fadf3108e6b5dbba7d028955def1c78`; owner action `fc85704faffb112428b4145d8eb18acb644ecb2c`.
+- **Blobs после публикации:** `backend/auth.js` `27df9536e2fda081fc6812f22147ff6cab70c712`; `backend/test/auth.test.js` `93e7554f0aa1151905e0e9aa0e00b4227e1f8b24`; `docs/audits/2026-11-22-consent-persistence-fail-closed.md` — audit report.
+- **Проверки:** GitHub re-fetch подтвердил обновлённые source/test blobs и diff; Node test suite НЕ запускался в этой среде. Последние Actions jobs на предыдущих commits завершались до первого шага (`runner_id=0`, `steps=0`); новый результат CI пока не подтверждён. Не объявлять тесты PASS.
+- **Production safety:** production DB, реальные данные, платежи, Pinterest, DNS и deployment не трогались.
+- **Блокировка владельца:** UA-075 — проверить/применить additive migration `166_user_terms_consent.sql` и подтвердить наличие `public.users.terms_accepted_at`. До этого регистрация корректно откажет, если колонка отсутствует.
+- **Следующий шаг:** проверить новые CI runs и продолжить ревью PR #96 отдельно от main; не включать S3/CDN image-base flag до реализации фактической загрузки/удаления объектов в целевом storage.
