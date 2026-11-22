@@ -3505,6 +3505,26 @@ test("the retention inventory is read-only and clamps absurd windows", async () 
   }
 });
 
+test("the retention inventory rejects a malformed successful RPC result instead of showing no candidates", async () => {
+  const backend = await startBackend();
+  try {
+    scriptAdminFlag(backend, true);
+    backend.db.rpc("list_pin_image_retention_candidates", { status: 200, body: null });
+
+    const answer = await backend.send("GET", "/admin/storage/retention-candidates?days=90&limit=20");
+
+    assert.equal(answer.status, 502, JSON.stringify(answer.body));
+    assert.equal(answer.body.candidates, undefined);
+    assert.equal(
+      backend.db.requests.filter((entry) => ["DELETE", "PATCH", "PUT"].includes(entry.method)).length,
+      0,
+      "malformed inventory data must not trigger cleanup"
+    );
+  } finally {
+    await backend.stop();
+  }
+});
+
 test("a stale upload is reported, never resolved, and a missing object is not proof the upload died", async () => {
   const backend = await startBackend();
   try {
