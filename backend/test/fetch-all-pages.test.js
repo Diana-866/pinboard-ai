@@ -60,3 +60,20 @@ test("fetchAllPages fails closed on a malformed page instead of truncating the l
     (error) => error && error.httpStatus === 502
   );
 });
+
+
+test("readArrayQueryResult rejects malformed envelopes and preserves valid empty results", () => {
+  const { readArrayQueryResult } = require("../fetchAllPages");
+  const dbError = new Error("database unavailable");
+  assert.throws(() => readArrayQueryResult({ data: null, error: dbError }), (error) => error === dbError);
+
+  for (const malformed of [null, undefined, {}, [], "rows", { data: null, error: null }, { data: {}, error: null }]) {
+    assert.throws(
+      () => readArrayQueryResult(malformed),
+      (error) => error && error.httpStatus === 502,
+      "malformed query result must fail closed"
+    );
+  }
+
+  assert.deepEqual(readArrayQueryResult({ data: [], error: null }), []);
+});
