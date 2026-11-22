@@ -267,9 +267,11 @@ test("a deployment without the optional profile columns still registers the acco
 
   assert.equal(result.needVerification, true);
   assert.equal(state.users.length, 1);
-  assert.equal(state.inserts.length, 2, "the account must be retried once without the optional columns");
+  assert.equal(state.inserts.length, 2, "the account must be retried once without the missing optional profile column");
   assert.equal(Object.hasOwn(state.inserts[1], "name"), false, "the retry must drop the missing column, not send it again");
   assert.equal(Object.hasOwn(state.inserts[1], "preferred_language"), false);
+  assert.equal(typeof state.inserts[1].terms_accepted_at, "string", "the retry must preserve the consent timestamp");
+  assert.ok(Number.isFinite(Date.parse(state.inserts[1].terms_accepted_at)), "the consent timestamp must be a valid ISO date");
 });
 
 test("the profile-column retry still reports a duplicate and an outage correctly", async () => {
@@ -325,4 +327,20 @@ test("a deployment without the verification column does not lock every customer 
   addUser({ email_verified: null });
   const result = await login("customer@example.test", "StrongPass123");
   assert.ok(result.token, "a missing column must not block sign-in for everybody");
+});
+
+
+test("registration fails closed when consent timestamp persistence is unavailable", async () => {
+  reset();
+  state.insertErrors = [{
+    code: "42703",
+    message: 'column "terms_accepted_at" does not exist',
+  }];
+
+  const error = await catchError(register("consent-schema-missing@example.test", "StrongPass123", "", "", "en", true));
+
+  assert.equal(error.httpStatus, 503);
+  assert.equal(state.inserts.length, 1, "must not retry by dropping the legal consent field");
+  assert.equal(state.users.length, 0, "must not create an account without a persisted consent record");
+  assert.deepEqual(issuedFor, [], "must not issue an email-verification token for a failed registration");
 });
