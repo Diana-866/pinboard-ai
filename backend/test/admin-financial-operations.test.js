@@ -32,7 +32,7 @@ const supabaseMock = {
       eq() { return this; },
       lt() { return this; },
       order() { return this; },
-      limit() { return this; },
+      limit(value) { this.limitValue = value; return this; },
       in(column, values) {
         this.filterColumn = column;
         this.filterValues = values;
@@ -44,6 +44,7 @@ const supabaseMock = {
         }
         let data = fixtures[table] || [];
         if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
+        if (Number.isFinite(this.limitValue)) data = data.slice(0, this.limitValue);
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
@@ -176,4 +177,11 @@ test("financial reconciliation refuses malformed primary, task and matching-requ
   }
   malformedRead = null;
   queryCounts.clear();
+});
+
+test("reservation queue reports truncation based on the fetched rows before slicing", async () => {
+  const result = await getFinancialOperationsQueue({ limit: 1 });
+  assert.equal(result.reservations.length, 1, "the response stays within the requested category limit");
+  assert.equal(result.counts.reservations, 1);
+  assert.equal(result.truncated.reservations, true, "the extra fetched row proves the queue is truncated");
 });
