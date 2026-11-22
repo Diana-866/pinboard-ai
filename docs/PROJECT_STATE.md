@@ -3968,3 +3968,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Production safety:** production DB, реальные данные, платежи, Pinterest, DNS и deployment не трогались.
 - **Блокировка владельца:** UA-075 — проверить/применить additive migration `166_user_terms_consent.sql` и подтвердить наличие `public.users.terms_accepted_at`. До этого регистрация корректно откажет, если колонка отсутствует.
 - **Следующий шаг:** проверить новые CI runs и продолжить ревью PR #96 отдельно от main; не включать S3/CDN image-base flag до реализации фактической загрузки/удаления объектов в целевом storage.
+
+
+### 2026-11-22 — Рабочий период закрыт: код опубликован, CI runner заблокировал runtime
+
+- **Последний проверенный main перед документационным closeout:** `6d0998afc4faabddca16ee134fa52fbf36b299f7`; base дерева для closeout: `347bfa2ad160b0819026ea6d1c76c161d9f3ac72`.
+- **Публикация:** source `91e6edf09ca5eefe611556bb0bb70f176d3fc0ab`, regression test `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd`, owner action `fc85704faffb112428b4145d8eb18acb644ecb2c`, state `a6d01304ee964f4e87f478eca5848963edd4129b`, documentation register `1093a34c4fd599bcc4584e99458527af2b555684`, audit update `6d0998afc4faabddca16ee134fa52fbf36b299f7`.
+- **CI:** workflow run `45030088767`, job `137231548164` (`postgres-atomicity`) ended `failure` with `runner_id=0`, `steps=[]`; no test command started. The failure is runner allocation, not an observed assertion failure. No rerun was attempted because the same zero-step runner failure has repeatedly occurred and cannot be repaired by code changes in this session.
+- **Vercel:** `success` status on code and test commits and documentation HEAD `1093a34c4fd599bcc4584e99458527af2b555684`; this status is not proof of production deployment. No production deployment action was initiated.
+- **PR #96:** remains open/not merged. Review comment `7080191005` records two merge blockers: its consent fallback can regress the new main fix, and `PIN_IMAGE_PUBLIC_BASE_URL` does not switch actual upload/delete provider (both still use Supabase Storage). Do not enable target S3/CDN URL until provider operations and lifecycle/recovery are implemented consistently.
+- **Confirmed from GitHub:** main code and test file blobs were re-fetched after publication; compare against base showed only intended source, regression test and documentation changes. Node tests and Docker build remain NOT RUN here.
+- **Owner gate:** UA-075. Verify migration 166 in the intended Supabase project; no production DB was accessed.
+- **Next independent task:** reconcile PR #96 with main, remove/complete the incomplete storage cutover safely, then get a real runner to execute the full backend/frontend/SQL gates. Live SMTP, GPTunnel generation, Prodamus payment and Pinterest publish remain unverified.

@@ -2063,8 +2063,16 @@ The full documentation inventory above is historical and was not regenerated dur
 |---|---|---|
 | `backend/auth.js` | `27df9536e2fda081fc6812f22147ff6cab70c712` | `91e6edf09ca5eefe611556bb0bb70f176d3fc0ab`; fail-closed when consent column is absent; retry preserves timestamp |
 | `backend/test/auth.test.js` | `93e7554f0aa1151905e0e9aa0e00b4227e1f8b24` | `f4ddd2508a3d3ddb8e0bc60ae66b19a321daeabd`; regression for missing consent column and retry timestamp |
-| `docs/audits/2026-11-22-consent-persistence-fail-closed.md` | `created in commit 097eefc38fadf3108e6b5dbba7d028955def1c78` | AUD-402 root cause, exact changes, verification limits and owner gate |
+| `docs/audits/2026-11-22-consent-persistence-fail-closed.md` | `e7cda489a3b267e29941633291f11c024c42169b` | AUD-402; current blob includes PR #96 storage/auth review and Actions runner result |
 | `docs/USER_ACTIONS.md` | `03b68b5bbfe6f4a4971b93fcbc50db1a2cb6bf8a` | `fc85704faffb112428b4145d8eb18acb644ecb2c`; UA-075 migration-166 verification |
 | `docs/PROJECT_STATE.md` | `a707b37a50b6b1ffb11566144d9988b6a3603bf5` | `a6d01304ee964f4e87f478eca5848963edd4129b`; closeout and runtime boundary |
 
 Node tests were not executed in this connector-only session. Do not infer CI PASS from file publication or blob verification.
+
+
+### Final closeout receipt — 2026-11-22
+
+- `docs/PROJECT_STATE.md` current blob: `97eb45b942dc62f876b9b5d57f9625234c25bde4`; final closeout includes source/test commits, PR #96 comment, runner failure and next step.
+- `docs/USER_ACTIONS.md` current blob: `03b68b5bbfe6f4a4971b93fcbc50db1a2cb6bf8a` (UA-075).
+- Audit report current blob: `e7cda489a3b267e29941633291f11c024c42169b`.
+- `main` ref before the atomic documentation closeout: `6d0998afc4faabddca16ee134fa52fbf36b299f7`. Node tests are NOT VERIFIED; Actions did not start any steps.
