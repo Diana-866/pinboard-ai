@@ -3869,8 +3869,9 @@ npm.cmd test
 
 - **Status:** awaiting fixes on the unmerged PR; no merge authorized by this review.
 - **Review comment:** PR #96 comment `7080338627`; report `docs/audits/2026-11-22-pr96-storage-migration-review.md`.
-- **Required corrections:** (1) recognize both custom-base and legacy Supabase image URLs during lifecycle deletion; (2) preserve S3 source Content-Type; (3) verify image bytes with checksum, not size alone, for resume and copy validation.
-- **Acceptance evidence:** regression tests for legacy/new URL deletion, S3 metadata preservation, and same-size/different-content objects; actual test run and migration dry-run against disposable credentials/environment. Do not use production storage for acceptance.
+- **Required corrections:** (1) recognize both custom-base and legacy Supabase image URLs during lifecycle deletion; (2) preserve S3 source Content-Type; (3) verify image bytes with checksum, not size alone, for resume and copy validation; (4) implement an actual end-to-end target-storage adapter for upload, read/existence/list, reconciliation, delete, retention and restore before exposing a custom base; (5) rebase the auth fallback so `terms_accepted_at` cannot be dropped when another optional profile column is missing.
+- **Critical cutover boundary:** PR #96 currently changes the returned public image URL but its storage upload and deletion still use Supabase. Do not set `PIN_IMAGE_PUBLIC_BASE_URL` to an S3/CDN destination until a full target-provider adapter and migration path are implemented and tested. A URL-only switch would produce broken links and leave cleanup pointed at the old provider.
+- **Acceptance evidence:** regression tests for legacy/new URL deletion, S3 metadata preservation, same-size/different-content objects, all target-provider lifecycle paths, and consent timestamp preservation; actual test run and migration dry-run against disposable credentials/environment. Do not use production storage for acceptance.
 - **Owner decision:** review findings must be resolved before merge consideration. No production cutover is implied.
 
 
@@ -3957,4 +3958,20 @@ npm.cmd test
 **Safety:** run only with the test harness/local disposable configuration. Do not use production Supabase, Prodamus, SMTP, Pinterest or Storage credentials.
 
 **Status:** pending owner/local runtime evidence; no tests are claimed passed.
+
+## UA-082 — unblock Vercel commit identity and obtain real CI execution
+
+**Observed:** PR #96's Vercel check explicitly refused deployment for commit `bc3271dcf49b9a093974f03705eeb8a04149abc8`: GitHub could not verify the commit author account for the Diana Vercel team. Latest checked `main` Vercel status is `pending`. GitHub Actions jobs on main complete in ~3 seconds with `runner_id=0` and `steps=null`; no test command runs.
+
+**Owner steps (account access required):**
+1. Open GitHub Settings → Emails. Verify that the email used for your commits is verified and associated with the account that has Vercel team access. Check the author email of the exact commit in the failed Vercel message; do not assume a different commit's email is the same.
+2. In Vercel, confirm the same GitHub account is connected to the Diana team/project and has deployment access. Review the deployment error in Vercel before changing team settings.
+3. After identity is corrected, create a new reviewed commit (do not rewrite or force-push shared main history solely to alter authorship) and confirm a fresh Vercel deployment reaches Ready.
+4. For Actions, restore a functioning runner/account quota or run the focused/full test commands from UA-080/081 on a local Node 22 checkout. Record command, exit code and test totals.
+
+**Acceptance:** a fresh main commit has Vercel deployment Ready; at least one actual Actions/local run executes the tests and reports a real result. Runner allocation failure is not a test PASS.
+
+**Safety:** do not deploy PR #96 or enable storage cutover as part of this account repair. No credentials or secrets should be pasted into chat.
+
+**Status:** owner access required; main Vercel pending and runtime tests not verified.
 
