@@ -15,9 +15,9 @@ If a result exceeded the backend REST row cap, the API could return a prefix. In
 
 ## Changes
 
-- Both modules request at most 1,001 rows for each related-record query.
-- A result greater than 1,000 fails closed with HTTP 502 and a manual-review message. The extra row is a safety sentinel; no truncated result is used to derive a match.
-- Added regressions that create 1,001 matching local rows for each relevant lookup kind and assert the 502 boundary.
+- Both modules request at most 1,000 rows for each related-record query (999 possible matches plus a boundary row).
+- A result at least 1,000 fails closed with HTTP 502 and a manual-review message. The extra row is a safety sentinel; no truncated result is used to derive a match.
+- Added regressions that create 1,000 matching local rows for each relevant lookup kind and assert the 502 boundary.
 - Updated the payment-creation test mock to honor `.limit()` for every table, so it models the database query bound rather than only the primary queue.
 - Updated the test inventory from 1,452 to 1,454 declarations (financial operations 9→10; payment-creation requests 13→14).
 
@@ -31,11 +31,11 @@ If a result exceeded the backend REST row cap, the API could return a prefix. In
 | Payment regression | `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7` |
 | Test inventory | `1af375d1bb45fa54e502c688e726cd46d7f5a933` |
 
-Current verified blobs:
-- `backend/adminFinancialOperations.js`: `604706d6f555428f7638b0045e140096c7975f8f`
-- `backend/adminPaymentCreationRequests.js`: `df14f213501e395e30040fbaf15c20d02e98222f`
-- `backend/test/admin-financial-operations.test.js`: `5c373dd4b7ca21e094a1e69fee5fc6e0ef43fbcf`
-- `backend/test/admin-payment-creation-requests.test.js`: `b33c04ee1ce3751f9b1cd36100910fe696663c0b`
+Current verified blobs (after boundary correction):
+- `backend/adminFinancialOperations.js`: `de615be8e17534bf9c3fe3f4d204cac79c976583`
+- `backend/adminPaymentCreationRequests.js`: `313dd3f3756dcf4e9a3b4f2ad7a21b1e9f7e7d4f`
+- `backend/test/admin-financial-operations.test.js`: `a68de96496f757a771e51a9536f83150337aa4e4`
+- `backend/test/admin-payment-creation-requests.test.js`: `e20b087499938fb75cfd23cb8be52fad2d34645e`
 - `backend/test/test-inventory.json`: `af7f640c0258d68321137767bfbb71c3cb9811c8`
 
 ## Verification
