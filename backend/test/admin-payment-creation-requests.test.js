@@ -27,7 +27,7 @@ const db = {
         let data = Object.hasOwn(malformedResults, table)
           ? malformedResults[table]
           : (table === "payment_creation_requests" ? rows : (relatedRows[table] || []));
-        if (table === "payment_creation_requests" && Number.isFinite(call.limit)) data = data.slice(0, call.limit);
+        if (Number.isFinite(call.limit)) data = data.slice(0, call.limit);
         return Promise.resolve({ data, error: queryErrors[table] || null }).then(resolve, reject);
       },
     };
@@ -219,4 +219,28 @@ test("payment creation inventory reports a truncated queue without returning the
   assert.equal(result.count, 1);
   assert.equal(result.items.length, 1);
   assert.equal(result.truncated, true);
+});
+
+
+test("payment reconciliation fails closed when related lookup reaches its safety cap", async () => {
+  for (const kind of ["subscriptions", "credit_purchases"]) {
+    reset();
+    const rows = Array.from({ length: 1001 }, (_, index) => ({
+      id: kind + "-" + index,
+      user_id: "user-1",
+      provider_payment_id: "pp-test-order-0001",
+      ...(kind === "subscriptions" ? { plan: "pro" } : { package_id: "pack_50" }),
+      status: "pending",
+      amount: kind === "subscriptions" ? 4990 : 190,
+      currency: "rub",
+    }));
+    relatedRows[kind] = rows;
+    if (kind === "subscriptions") relatedRows.credit_purchases = [];
+    else relatedRows.subscriptions = [];
+    await assert.rejects(
+      listPaymentCreationRequests({}, Date.now(), db),
+      (error) => error.httpStatus === 502
+    );
+    assert.equal(calls.find((call) => call.table === kind).limit, 1001);
+  }
 });
