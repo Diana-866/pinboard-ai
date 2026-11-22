@@ -4104,3 +4104,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Safety:** no production DB, payment provider, Pinterest, Storage, DNS or deployment touched.
 - **Next:** UA-080 local targeted and full backend runtime tests; then continue code review of remaining payment and publication failure paths.
 
+## Working-period closeout — 2026-11-22 (AUD-409)
+
+- **Main HEAD before closeout:** `5daa766760c8b5aa3af83c1ff286c4421128dc39`.
+- **Completed:** AUD-409 strict validation for admin payment inventories and schedule account-recovery metadata; source commit `42e4546998d50944ff2ab486c0210e2d0484f3d2`, HTTP regressions `e2cc97edee60e3267f07d8975c496f32ecd48233`, schedule contract `dfc64df387d7a39f5ce4d84496c6c168a02a6f3f`, inventory `5e88940e1479639824c5411251a66dae8bfbfa9b`.
+- **Documentation:** AUD-409 report, state, owner action UA-080 and documentation register published. Current document blobs: state `bc23dc1d33d69b5bc576e925a10bb4921e3e9a08`; actions `9632dd60c5ae74ee58417048b0d1383e0d357e2d`; register `b6439408ec9a21cb90d86468b6efb0f54e771a65`; audit `fbd56b3f51c2015a61f950760ae50bd2d84cb9f9`.
+- **Publication verification:** re-fetched current main code/tests/inventory; strict billing/reconciliation checks present; test inventory 1442 (113 API authenticated-read declarations, 3 schedule contract declarations).
+- **Actions:** latest backend/frontend/postgres jobs on code commit `5e88940e1479639824c5411251a66dae8bfbfa9b` failed before steps: runner IDs 0, steps empty; logs unavailable (`BlobNotFound`). No test command ran.
+- **Vercel:** combined status pending on main docs commit `5daa766760c8b5aa3af83c1ff286c4421128dc39`; no build/deployment PASS or production deployment is claimed.
+- **Runtime:** Node tests NOT RUN; all code validation in this working period is static GitHub re-fetch/source-contract inspection.
+- **Safety:** no production DB, production Storage, Prodamus, Pinterest, DNS or deployment touched.
+- **Next:** owner runtime acceptance UA-080/UA-076 on a local Node runner, then continue independent payment fulfillment and publication-path review. Do not retry Actions until runner allocation is restored or a working runner is available.
+
