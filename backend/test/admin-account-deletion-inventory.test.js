@@ -49,7 +49,8 @@ function createDb({ counts = {}, lists = {}, errors = {} } = {}) {
             const count = counts[key()];
             return Promise.resolve({ data: null, count, error: null }).then(resolve, reject);
           }
-          return Promise.resolve({ data: lists[key()] || [], count: null, error: null }).then(resolve, reject);
+          const data = Object.hasOwn(lists, key()) ? lists[key()] : [];
+          return Promise.resolve({ data, count: null, error: null }).then(resolve, reject);
         },
       };
       return builder;
@@ -195,4 +196,21 @@ test("the limit is bounded and rejects nonsense", () => {
   for (const value of ["0", "101", "-5", "2.5", "abc"]) {
     assert.throws(() => parseLimit(value), (error) => error.httpStatus === 422, `limit ${value}`);
   }
+});
+
+
+test("null successful list responses fail closed instead of appearing empty", async () => {
+  const oldestScenario = baseScenario();
+  oldestScenario.lists["account_deletion_requests:pending"] = null;
+  await assert.rejects(
+    () => getAccountDeletionInventory({}, createDb(oldestScenario), NOW),
+    (error) => /oldest request response is not an array/.test(error.message)
+  );
+
+  const jobsScenario = baseScenario();
+  jobsScenario.lists["account_deletion_jobs:blocked,retry_wait,running"] = null;
+  await assert.rejects(
+    () => getAccountDeletionInventory({}, createDb(jobsScenario), NOW),
+    (error) => /job response is not an array/.test(error.message)
+  );
 });
