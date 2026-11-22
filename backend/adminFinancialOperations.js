@@ -1,4 +1,5 @@
 const supabase = require("./supabase");
+const { readArrayQueryResult } = require("./fetchAllPages");
 
 function clampInteger(value, fallback, min, max) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -85,13 +86,13 @@ async function getFinancialOperationsQueue(options = {}) {
       .limit(fetchLimit),
   ]);
 
-  for (const result of [generationResult, regenerationResult, reservationsResult]) {
-    if (result.error) throw result.error;
-  }
+  const generationRows = readArrayQueryResult(generationResult);
+  const regenerationRows = readArrayQueryResult(regenerationResult);
+  const reservationRows = readArrayQueryResult(reservationsResult);
 
-  const generationRequests = (generationResult.data || []).slice(0, limit);
-  const regenerationRequests = (regenerationResult.data || []).slice(0, limit);
-  const reservations = (reservationsResult.data || []).slice(0, limit);
+  const generationRequests = generationRows.slice(0, limit);
+  const regenerationRequests = regenerationRows.slice(0, limit);
+  const reservations = reservationRows.slice(0, limit);
   const generationIds = generationRequests.map((row) => row.id);
   let taskRows = [];
   let tasksTruncated = false;
@@ -109,8 +110,7 @@ async function getFinancialOperationsQueue(options = {}) {
         .limit(TASK_FETCH_LIMIT)
     ));
     for (const result of taskResults) {
-      if (result.error) throw result.error;
-      const rows = result.data || [];
+      const rows = readArrayQueryResult(result);
       // A full batch is the REST cap, not proof that the journal ended there.
       if (rows.length >= TASK_FETCH_LIMIT) tasksTruncated = true;
       taskRows.push(...rows);
@@ -135,11 +135,11 @@ async function getFinancialOperationsQueue(options = {}) {
         .select("id,user_id,idempotency_key,status")
         .in("idempotency_key", reservationKeys),
     ]);
-    if (generationMatches.error) throw generationMatches.error;
-    if (regenerationMatches.error) throw regenerationMatches.error;
+    const generationMatchRows = readArrayQueryResult(generationMatches);
+    const regenerationMatchRows = readArrayQueryResult(regenerationMatches);
     reservationRequestRows = [
-      ...(generationMatches.data || []).map((row) => ({ ...row, operation: "generation" })),
-      ...(regenerationMatches.data || []).map((row) => ({ ...row, operation: "regeneration" })),
+      ...generationMatchRows.map((row) => ({ ...row, operation: "generation" })),
+      ...regenerationMatchRows.map((row) => ({ ...row, operation: "regeneration" })),
     ];
   }
 
@@ -215,9 +215,9 @@ async function getFinancialOperationsQueue(options = {}) {
     older_than_minutes: olderThanMinutes,
     limit_per_category: limit,
     truncated: {
-      generation: (generationResult.data || []).length > limit,
-      regeneration: (regenerationResult.data || []).length > limit,
-      reservations: (reservationsResult.data || []).length > limit,
+      generation: generationRows.length > limit,
+      regeneration: regenerationRows.length > limit,
+      reservations: reservationRows.length > limit,
       tasks: tasksTruncated,
     },
     counts: {
