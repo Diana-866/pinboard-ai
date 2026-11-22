@@ -4317,3 +4317,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **CI/PR/deployment:** Actions runner allocation and external integration acceptance remain release blockers; PR #96 remains open/unmerged and storage migration is not approved.
 - **Safety:** no production or external state changed.
 - **Next:** execute UA-087 locally; continue independent code review after fresh HEAD/docs check. No background work claimed.
+
+
+## Final synchronization receipt — AUD-418 (2026-11-22)
+
+- **Verified main HEAD before this receipt:** `fb2be56520a8e7938905e52677cdedeeb391b641`.
+- **Final static re-fetch:** both modules use `MATCH_QUERY_LIMIT = 1000` and reject arrays of length `>= 1000`; regression declaration counts are 10 and 14; inventory is exactly 1,454. All three required documents and the AUD-418 report are present on main.
+- **Actions:** run `45038055140` and `45038055126` failed before execution with `runner_id=0`, empty steps; no tests ran.
+- **Vercel:** status on checked HEAD is `failure` / `build-rate-limit` (deployment rate limited; retry in 24 hours). This is an account quota blocker, not a source build result.
+- **Runtime:** UA-087 remains pending. No tests are claimed passed by this session.
+- **Next:** owner runs focused and full Node 22 tests locally or restores a working runner; after acceptance continue independent reconciliation review. Production release remains blocked.
