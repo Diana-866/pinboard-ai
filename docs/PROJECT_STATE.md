@@ -4220,3 +4220,12 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Re-fetched changed files after publication; static assertions passed. Actual Node runtime was unavailable in this session; no runtime result is inferred.
 - Required documents synchronized: PROJECT_STATE (this entry), USER_ACTIONS (UA-083), DOCUMENTATION_REGISTER (AUD-414 entry). Latest final HEAD will be recorded by the documentation register synchronization commit.
 - Next action: run UA-083 locally, then continue reviewing remaining payment/admin reconciliation paths. No background work is claimed.
+
+
+### Final verification receipt — AUD-414 (2026-11-22)
+
+- Verified main HEAD before this receipt: `98d17762fdecaf9f773111216bf63240340252b7`.
+- Re-fetched current main files: source blob `c023ecee49caf106ad33d9d2bf34ab6e31c236a8`; regression test blob `cb51ee44ab048c567969a5c2ca8df8028910c41f`; inventory blob `0c31cc8d3a060d4a466304eb1fcd774ca366eada`; audit blob `61f253828d229709691f0106e32bef859f01aaa5`; USER_ACTIONS blob `bb3bd99de218249e791878ab0073be6395b91885`; DOCUMENTATION_REGISTER blob before this receipt `d4f95e1c6bfa05f47cd50d4c11da7e72117b5b80`.
+- Assertions: duplicate guard true; duplicate regression present; 12 test declarations; inventory 1449 total and file count 12; AUD-414 in state/register; UA-083 in owner actions.
+- Latest GitHub status checked on current HEAD `98d17762fdecaf9f773111216bf63240340252b7`: Vercel `pending`. This is not a test result or deployment acceptance.
+- Focused and full Node runtime tests remain NOT RUN; UA-083 is the owner gate. No production systems touched.
