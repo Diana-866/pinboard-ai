@@ -2265,3 +2265,23 @@ Commits: source `866a82064770f545c2444cc510cf513c0a6f5c5e`; regression `188a2e95
 - Inventory: 1448 total; admin payment creation test declarations 11/11.
 - Vercel `success` was checked for `1a36afa502f570d3d36290e4837207ddeca20876`; later docs-only commit statuses are not asserted. Runtime remains unverified.
 
+
+
+### AUD-414 — duplicate payment reconciliation matches fail closed (2026-11-22)
+
+| Path | Blob SHA | Purpose |
+|---|---|---|
+| `backend/adminPaymentCreationRequests.js` | `c023ecee49caf106ad33d9d2bf34ab6e31c236a8` | Reject duplicate subscription rows for the same provider order ID instead of overwriting a local match |
+| `backend/test/admin-payment-creation-requests.test.js` | `cb51ee44ab048c567969a5c2ca8df8028910c41f` | Regression for duplicate subscription and credit-purchase rows |
+| `backend/test/test-inventory.json` | `0c31cc8d3a060d4a466304eb1fcd774ca366eada` | Inventory 1449 declarations; payment-creation reconciliation tests 12 |
+| `docs/audits/2026-11-22-duplicate-payment-reconciliation-match.md` | created in commit `5edd090352beaf32a08a33b86de02e52fe78fa4b` | Root cause, fix, static verification boundary and runtime gate |
+
+Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b3060a44ee9dcbbc20be6ce1df2`; test-fixture correction `b64d0e69a8e4d64ddaf203aed72e34a31ce4c37c`; inventory `5047f7495e0a7f9d22901d4d9f640f19d1eb86bb`; audit `5edd090352beaf32a08a33b86de02e52fe78fa4b`; PROJECT_STATE `0960f240aa83c99a7a51a37cc181a272a36cc30a`; USER_ACTIONS UA-083 `b6e211e0c93d64e0de99803749c8f10a97e77dbb`. Runtime Node tests NOT RUN; UA-083 records focused/full backend acceptance. No PASS claimed.
+
+### Final synchronization — 2026-11-22 (AUD-414)
+
+- Re-fetched source, regression, inventory, audit and required project documents after publication.
+- Static verification: duplicate guard present; test declarations 12; inventory total 1449 and per-file count 12.
+- PROJECT_STATE closeout commit: `0960f240aa83c99a7a51a37cc181a272a36cc30a`; USER_ACTIONS commit: `b6e211e0c93d64e0de99803749c8f10a97e77dbb`.
+- Node runtime tests remain NOT RUN; CI runner is not available in this connector session. Vercel status pending on the code/inventory commit is not a test result.
+- No production systems or real payment/storage/provider actions were touched.
