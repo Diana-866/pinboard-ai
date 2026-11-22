@@ -4010,3 +4010,14 @@ npm.cmd test
   ```
 - **Expected:** the focused tests pass; inventory test confirms declarations are synchronized. Report the exact command, full summary, exit code and tested HEAD. Do not connect to production or run payment operations.
 - **What this proves:** only the local Node regression and inventory checks; not PostgreSQL replay, live provider behavior or deployment.
+
+## UA-085 — Run AUD-416 scoped task truncation regression
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Command:** from a fresh checkout of current `main`, in `backend`:
+  ```powershell
+  node --test test/admin-financial-operations.test.js test/test-inventory.test.js
+  ```
+- **Expected:** all focused admin financial tests and inventory check pass; report exact HEAD, summary and exit code.
+- **Commits:** source `a6f0e0c997d7b400ecede47c154c751c7885adb4`; test `71f7ffe7f35eb016e8bf347b473cf46cd259bc30`; inventory `e3c7b44b68a3ac1ed2d6bcc43dbaf96119743cf3`.
+- **Safety:** local test only; do not use production DB or invoke payment/provider operations.
