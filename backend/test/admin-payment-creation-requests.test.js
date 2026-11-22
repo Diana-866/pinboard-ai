@@ -193,7 +193,7 @@ test("duplicate local payment rows for one provider order fail closed within eit
     reset();
     const source = kind === "subscriptions" ? relatedRows.subscriptions : relatedRows.credit_purchases;
     const row = kind === "subscriptions"
-      ? { ...source[0], provider_payment_id: "pp-test-order-0001" }
+      ? { ...source[0], id: "subscription-duplicate", provider_payment_id: "pp-test-order-0001" }
       : {
           id: "purchase-duplicate", user_id: "user-1", provider_payment_id: "pp-test-order-0001",
           package_id: "pack_50", status: "pending", amount: 190, currency: "rub",
