@@ -42,10 +42,16 @@ test("consent is written with the registration timestamp", async () => {
   assert.match(source, /terms_accepted_at: new Date\(\)\.toISOString\(\)/);
 });
 
-test("a missing column degrades instead of breaking registration", async () => {
+test("a missing consent column fails closed instead of dropping the record", async () => {
+  // Согласие — юридический факт: если колонки нет, аккаунт не создаётся, иначе отметка
+  // о согласии терялась бы молча. Требуется применённая миграция 166.
   const source = fs.readFileSync(path.join(__dirname, "..", "auth.js"), "utf8");
   assert.match(source, /preferred_language\|terms_accepted_at\)/, "the optional-column retry must cover the new column");
-  assert.match(source, /auth\.consent_not_persisted/);
+  assert.match(source, /terms_accepted_at\\b\/i\.test\(result\.error\.message/, "the missing column must be detected by name");
+  assert.match(source, /httpError\(503, "Регистрация временно недоступна/);
+  // Повторная вставка без необязательных колонок обязана сохранять отметку согласия.
+  const tail = source.slice(source.indexOf("Older deployments may lack"));
+  assert.match(tail, /terms_accepted_at: profile\.terms_accepted_at/);
 });
 
 test("the browser sends the consent it collected", async () => {

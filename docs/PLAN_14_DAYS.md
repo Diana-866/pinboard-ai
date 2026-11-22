@@ -21,14 +21,14 @@
 
 ## Дни 3–4. Развёртывание
 
-- [~] `deploy/Dockerfile.backend` — образ backend, non-root, healthcheck (2026-11-23, SHA ниже; **не проверено:** сборка образа)
-- [~] Воркеры из того же образа, отдельные сервисы с командами `scheduleWorker.js` и `accountDeletionWorker.js` (2026-11-23; **не проверено:** запуск)
-- [~] `deploy/docker-compose.yml` — backend + воркер публикаций + воркер удаления + статика (2026-11-23; Supabase — отдельным self-hosted compose, **не проверено**)
-- [~] `deploy/Caddyfile` — HTTPS, `/api` → backend, SPA-fallback, HSTS (2026-11-23; **не проверено:** выдача сертификата)
-- [~] Статический фронтенд: `deploy/Dockerfile.web` собирает `npm run build`, Caddy раздаёт `/srv` (2026-11-23; **не проверено:** сборка)
+- [~] `deploy/Dockerfile.backend` — образ backend, non-root, healthcheck (2026-11-23, `bae65bda`; **не проверено:** сборка образа)
+- [~] Воркеры из того же образа, отдельные сервисы с командами `scheduleWorker.js` и `accountDeletionWorker.js` (2026-11-23, `bae65bda`; **не проверено:** запуск)
+- [~] `deploy/docker-compose.yml` — backend + воркер публикаций + воркер удаления + статика (2026-11-23, `bae65bda`; Supabase — отдельным self-hosted compose, **не проверено**)
+- [~] `deploy/Caddyfile` — HTTPS, `/api` → backend, SPA-fallback, HSTS (2026-11-23, `bae65bda`; **не проверено:** выдача сертификата)
+- [~] Статический фронтенд: `deploy/Dockerfile.web` собирает `npm run build`, Caddy раздаёт `/srv` (2026-11-23, `bae65bda`; **не проверено:** сборка)
 - [ ] Прогон миграций: `db/migrations/*.sql` по порядку, идемпотентно, с журналом
 - [ ] `GET /health` отвечает на сервере
-- [~] Воркер удаления включён в production через `ACCOUNT_DELETION_WORKER_ENABLED: "true"` в compose (гейт требует ровно строку `true`, проверено тестом; **не проверено:** фактический запуск)
+- [~] Воркер удаления включён в production через `ACCOUNT_DELETION_WORKER_ENABLED: "true"` в compose (гейт требует ровно строку `true`, проверено тестом; `bae65bda`; **не проверено:** фактический запуск)
 
 ## Дни 5–9. Ручной прогон сценариев и Pinterest Trial
 
@@ -73,6 +73,10 @@ backend             →  Supabase (self-hosted, PostgreSQL + Auth + Storage)
 worker: публикации  →  Supabase
 worker: удаление    →  Supabase
 ```
+
+- План создан `033820b2`; задания владельцу на старт — UA-092..UA-094.
+- Файлы развёртывания и страж `backend/test/deploy-assets-contract.test.js` — `bae65bda` (8 проверок, 8 мутаций падают; три слабости теста найдены мутациями и исправлены: `/health` совпадал с `/healthz`, закомментированная директива Caddy считалась живой, `**/.env.*` прикрывал отсутствие `**/.env`).
+- **Обязательное условие запуска:** миграция `166_user_terms_consent.sql` должна быть применена до первой регистрации — без колонки `terms_accepted_at` регистрация отвечает `503` (политика «fail closed»), согласие не теряется молча.
 
 ## Текущий статус
 
