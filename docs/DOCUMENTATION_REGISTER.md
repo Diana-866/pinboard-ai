@@ -2334,3 +2334,24 @@ Commits: source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; regression `ff5d92c3
 - AUD-417 source/test/inventory/audit re-fetched from main; blobs: `acbbcc216a9f13de622aa5f0e6fbb9611b35ddf5`, `67ff4e34cce94330ce3b1fd2c8feeee7b7eee71d`, `e57af213de55079d5a7a3d54a8b25edb6f3a001d`, `f755a6c48f7c53e9b6e4512bf7fe5021db437efd`.
 - 13 test declarations match inventory; total 1452. Runtime remains NOT RUN; UA-086 pending.
 - Vercel build-rate-limit is an account/quota blocker, not a build result. PR #96 storage gate and PostgreSQL/runtime acceptance remain open.
+
+
+### AUD-418 — bounded financial reconciliation match reads (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `backend/adminFinancialOperations.js` | `604706d6f555428f7638b0045e140096c7975f8f` | Caps reservation related-record queries and fails closed at the sentinel |
+| `backend/adminPaymentCreationRequests.js` | `df14f213501e395e30040fbaf15c20d02e98222f` | Caps subscription/credit payment matching queries and fails closed |
+| `backend/test/admin-financial-operations.test.js` | `5c373dd4b7ca21e094a1e69fee5fc6e0ef43fbcf` | 1,001-row regression for reservation matching |
+| `backend/test/admin-payment-creation-requests.test.js` | `b33c04ee1ce3751f9b1cd36100910fe696663c0b` | 1,001-row regressions for subscription and credit-purchase matching |
+| `backend/test/test-inventory.json` | `af7f640c0258d68321137767bfbb71c3cb9811c8` | 1,454 declarations; relevant files 10 and 14 |
+| `docs/audits/AUD-418-bounded-financial-reconciliation-reads.md` | `20dc636a742c687904d88673e68d4fc70d1b9492` | Root cause, code/test commits, static verification and runtime boundary |
+
+Commits: financial source `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; payment source `095ac7f6973b27617e1a083668a3e9e6ca4288c9`; financial test `2e676b0e22815453357285b02853cc34d2b70533`; payment test `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7`; inventory `1af375d1bb45fa54e502c688e726cd46d7f5a933`; audit `e81d24fc2402335b30de602222efd9ec9b02207c`; UA-087 `80fe240d5fbadadc84b2dd4a49db83d4d2c80ce0`; PROJECT_STATE closeout `f746c80e373b3fccbf607ee8d6a7b9f1f7b52945`.
+
+## Final synchronization — AUD-418 (2026-11-22)
+
+- Main HEAD before this register update: `f746c80e373b3fccbf607ee8d6a7b9f1f7b52945`.
+- Re-fetched current code, regression tests and inventory; static checks passed. Test inventory is 1,454.
+- Runtime tests NOT RUN; UA-087 pending. Previous Actions runner failure occurred before steps and is not a test result.
+- No production/provider/deployment actions were performed.
