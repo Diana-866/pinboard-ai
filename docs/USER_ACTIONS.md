@@ -4110,3 +4110,20 @@ npm.cmd test
 - Latest Actions runs on the AUD-422 UI commits: `45038989318` (`postgres-atomicity`), `45038989321` (`frontend` and `backend`), `45038985828`, and `45038985913` all failed before execution. Jobs have `runner_id=0` and empty `steps`; no tests/build/SQL ran. Do not treat these as code failures or passes.
 - Vercel status on main HEAD `2b13f46b882c372a906cb44c809169083d2bc47b`: `failure`, `build-rate-limit`, “Deployment rate limited — retry in 24 hours.”
 - UA-088 backend deletion tests, UA-089 admin auth tests and UA-090 frontend tests/build remain pending owner/local evidence. No further runner retry until allocation is available.
+
+
+## UA-091 — Verify admin-only email-outbox 5xx inventory (AUD-423)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Fix/test commit:** `f500b172d7370dc50a57dd7609715003af6a82d9`; audit `75a163bf4526adcdd443a8d73a1e4a9816596498`.
+- **Reason:** owner-reported focused test found two bare `502` responses from the read-only email-outbox health endpoint. The endpoint is admin-only; the test now records both operator-only exemptions and asserts the route keeps `requireAuth` + `requireAdmin`.
+- **After syncing current `main`, from repository root in CMD or PowerShell:**
+  ```bat
+  git pull --ff-only origin main
+  cd backend
+  node --test test/payment-server-error-codes.test.js test/test-inventory.test.js
+  npm.cmd test
+  ```
+- **Acceptance:** focused payment-error inventory passes; test inventory reports exactly 1,458 declarations across 175 test files; full backend suite exits 0. Report tested HEAD and exact summaries/exit codes.
+- **Important:** the earlier local inventory output reportedly compared 1,458 computed declarations against 1,461 expected. Current GitHub baseline at the inspected commit records 1,458. If the inventory test still fails, send the complete assertion and do not manually edit the baseline until the exact local file/ref is reconciled.
+- **Safety:** local test harness only. No production Supabase, Prodamus, live payment, deployment, DNS or account deletion.
