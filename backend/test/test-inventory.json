@@ -1,6 +1,6 @@
 {
   "files": 175,
-  "total": 1442,
+  "total": 1444,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -26,7 +26,7 @@
     "analytics.test.js": 10,
     "analyze-prompt-context.test.js": 5,
     "analyze-site-failure.test.js": 5,
-    "api-authenticated-reads.test.js": 113,
+    "api-authenticated-reads.test.js": 114,
     "api-wiring.test.js": 9,
     "app-boot.test.js": 2,
     "auth.test.js": 20,
@@ -51,7 +51,7 @@
     "documentation-integrity.test.js": 6,
     "email-locales.test.js": 4,
     "email-outbox-requeue.test.js": 6,
-    "email-outbox.test.js": 5,
+    "email-outbox.test.js": 6,
     "email-verification.test.js": 16,
     "env-documentation.test.js": 4,
     "error-code-drift.test.js": 5,
