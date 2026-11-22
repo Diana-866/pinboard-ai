@@ -4073,7 +4073,7 @@ npm.cmd test
   node --test test/admin-account-deletion-inventory.test.js test/test-inventory.test.js
   npm.cmd test
   ```
-- **Acceptance:** focused and full backend tests exit 0; both null-result scenarios fail closed; AUD-420 sentinel truncation and malformed-row cases pass; current main inventory is 1,458 declarations and account-deletion inventory test file has 12. Confirm the admin UI displays `requiring_attention_truncated` without implying the list is complete.
+- **Acceptance:** focused and full backend tests exit 0; both null-result scenarios fail closed; AUD-420 sentinel truncation and malformed-row cases pass; current main inventory is 1,458 declarations and account-deletion inventory test file has 12. The UI warning is implemented and covered by the frontend contract test; frontend runtime/build acceptance is UA-090.
 - Report tested HEAD, exact commands, summary and exit codes. Use test harness only; do not connect to production or run deletion jobs.
 
 
@@ -4090,3 +4090,16 @@ npm.cmd test
   ```
 - **Acceptance:** focused and full suite exit 0; missing user and known non-admin return 403; database error and malformed `data:null,error:null` return 503 with the fixed safe message; inventory is 1,458 declarations and `admin-access.test.js` has 4.
 - Report tested HEAD, exact commands, summary and exit codes. Use the local test harness only; no production database or deployment.
+
+
+## UA-090 — Frontend acceptance for account-deletion admin panel (AUD-422)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **After syncing latest `main`, from repository root in PowerShell:**
+  ```powershell
+  cd frontend
+  npm.cmd test
+  npm.cmd run build
+  ```
+- **Acceptance:** frontend test suite exits 0; TypeScript/Vite build exits 0; `adminPanelDataSafety.test.ts` confirms the admin tab, GET inventory endpoint, explicit truncation warning and read-only behavior. Confirm the page renders an incomplete list warning for `requiring_attention_truncated=true` and clears stale rows after a failed refresh.
+- Report exact HEAD, commands, test/build summaries and exit codes. Do not use production account deletion or deploy from this test step.
