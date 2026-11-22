@@ -1,6 +1,6 @@
 {
-  "files": 180,
-  "total": 1498,
+  "files": 181,
+  "total": 1503,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -135,6 +135,7 @@
     "prompt-context.test.js": 4,
     "prompt-injection-boundary.test.js": 1,
     "public-url.test.js": 15,
+    "rate-limit-inventory.test.js": 5,
     "rate-limit-response.test.js": 3,
     "registration-consent.test.js": 6,
     "registration-input-validation.test.js": 3,
