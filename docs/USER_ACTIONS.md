@@ -3907,3 +3907,29 @@ npm.cmd test
 **Expected:** malformed attempts metadata keeps failed schedule visible, but `retryable=false` and `retry_reason=metadata_unavailable`. All tests must exit 0.
 
 **Status:** runtime acceptance pending; this session only re-fetched source/test/inventory and performed static assertions. Do not test against production database or Pinterest credentials.
+
+## UA-080 — runtime acceptance for AUD-409 billing and schedule metadata
+
+**Why:** malformed database query envelopes must not be presented as empty payment inventories or evidence that a failed Pinterest publication is safe to retry. The source and regression tests are published, but this connector-only session could not execute Node tests.
+
+**After pulling the current `main`, from the repository root in PowerShell:**
+
+```powershell
+cd backend
+node --test test/fetch-all-pages.test.js test/pinterest-schedule-list-contract.test.js test/api-authenticated-reads.test.js test/test-inventory.test.js
+npm.cmd test
+```
+
+**Expected acceptance:**
+- malformed `billing_webhook_exceptions` result returns HTTP 502, not an empty exception log;
+- malformed `subscriptions` result returns HTTP 502, not an empty pending-order inventory;
+- malformed schedule retry metadata is not accepted as absence of publication/attempt history;
+- account-recovery contract rejects malformed attempts/publications/duplicate arrays and malformed account identity;
+- all focused tests and the full backend suite exit with code 0; test inventory matches 1442 declarations.
+
+**If a test fails:** provide the exact test name and sanitized error output. Do not paste credentials, provider payloads or production data.
+
+**Safety:** run tests with the repository's test harness only. Do not connect to production Supabase, Prodamus, Pinterest or production Storage. Do not execute production SQL or retry real publications.
+
+**Status:** awaiting local runtime evidence. No Node test PASS is claimed from static GitHub review.
+
