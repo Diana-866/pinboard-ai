@@ -4078,3 +4078,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Runtime:** Node tests NOT RUN; no runtime PASS. Older PR #95 was not merged due stale base; fix was applied narrowly to current main.
 - **Safety:** no production DB/data or external services touched.
 - **Next:** get backend test execution through a working local/CI runner (UA-076/078 pending); continue independent code review.
+
+
+### 2026-11-22 — Failed schedule retry now requires valid metadata (AUD-408)
+
+- **Finding:** `GET /schedule` used `result.data || []` for attempts/publications/active-account metadata. Malformed successful envelopes could be interpreted as evidence that retry was safe.
+- **Fix:** all three metadata groups now use `readArrayQueryResult`. DB errors and malformed envelopes return the schedule with failed rows explicitly `retryable:false`, `retry_reason:"metadata_unavailable"`; no retry safety is inferred from malformed data.
+- **Regression:** HTTP test for malformed attempts metadata; source contract requires strict validation for attempts/publications/accounts and forbids fallback. Test inventory 1437 → 1439.
+- **Commits:** implementation `afc394d904f082028d00ce0068414e4d73b9e1df`; HTTP test `94ae91a3d5bef3b0d09536972956329ddba0c630`; contract `6978b9995c0f5327705d4ea823c1d734e21e667f`; inventory `cfe386007abe41ae4c3286eccf6826be96802872`; report `c7dc4a522d8e31e90bf305327fe42648f1eb6539`.
+- **Static publication:** re-fetched changed files; validated 3 metadata groups, safe fallback, no unsafe route fallback; inventory matches 111 API tests + 2 schedule contract tests, total 1439.
+- **Runtime:** tests NOT RUN; no runtime PASS claimed.
+- **Safety:** no production DB, external Pinterest, Prodamus, Storage or deployment touched.
+- **Next:** UA-076 targeted/full backend tests on working local runner; continue release-readiness review.
