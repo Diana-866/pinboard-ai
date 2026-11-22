@@ -139,3 +139,36 @@ test("a valid empty email outbox claim is reported as an idle queue", async () =
   const result = await dispatchPendingSubscriptionEmails(10, { supabase: { rpc: async () => ({ data: [], error: null }) }, mail: { transactionalMailConfigured: () => true } });
   assert.deepEqual(result, { skipped: false, processed: 0, sent: 0, failed: 0, unconfirmed: 0 });
 });
+
+test("outbox health refuses malformed count and list envelopes instead of reporting zero mail", async () => {
+  const { getEmailOutboxHealth } = require("../billing");
+  for (const malformedKind of ["count", "dead_rows"]) {
+    const db = {
+      from(table) {
+        assert.equal(table, "email_outbox");
+        const query = { columns: "", options: {}, filters: {} };
+        query.select = function(columns, options) { this.columns = columns; this.options = options || {}; return this; };
+        query.eq = function(column, value) { this.filters[column] = value; return this; };
+        query.lt = function(column, value) { this.filters["lt:" + column] = value; return this; };
+        query.lte = function(column, value) { this.filters["lte:" + column] = value; return this; };
+        query.order = function() { return this; };
+        query.limit = function() { return this; };
+        query.then = function(resolve, reject) {
+          const result = this.options.head
+            ? { data: null, count: malformedKind === "count" ? null : 0, error: null }
+            : {
+                data: malformedKind === "dead_rows" && this.columns.includes("attempts") ? null : [],
+                error: null,
+              };
+          return Promise.resolve(result).then(resolve, reject);
+        };
+        return query;
+      },
+    };
+    await assert.rejects(
+      getEmailOutboxHealth(10, { supabase: db }),
+      (error) => error.httpStatus === 502
+    );
+  }
+});
+
