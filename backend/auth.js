@@ -124,8 +124,12 @@ async function register(rawEmail, rawPassword, rawName, rawSurname, rawLanguage,
     ok: true,
     needVerification: true,
     verificationEmailSent: sent,
-    message:
-      "Аккаунт создан. Мы отправили письмо со ссылкой подтверждения на ваш email — перейдите по ней, чтобы войти.",
+    // Текст не должен утверждать то, чего не произошло: при недоступной почте письма нет,
+    // и пользователь не должен ждать его в ящике. Код ответа и поле verificationEmailSent
+    // остаются прежними, меняется только обещание.
+    message: sent
+      ? "Аккаунт создан. Мы отправили письмо со ссылкой подтверждения на ваш email — перейдите по ней, чтобы войти."
+      : "Аккаунт создан. Письмо со ссылкой подтверждения отправить сейчас не удалось — запросите его повторно на странице входа.",
     user: { id: data.id, email: data.email, email_verified: false, onboarded: false, tariff_plan: "none" },
   };
 }
