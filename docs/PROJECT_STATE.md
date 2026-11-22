@@ -4390,3 +4390,15 @@ AUD-419's original commit-level acceptance was 10 declarations / 1,455 total. Su
 - Runtime status: UA-088 (backend deletion inventory), UA-089 (admin auth), UA-090 (frontend tests/build) pending. No PASS claimed.
 - Actions runner allocation and Vercel build-rate-limit remain external release blockers. No production or external state changed.
 - **Next:** owner/local acceptance for UA-088/089/090; continue independent review after fresh HEAD and documentation checks. No background work claimed.
+
+
+## Final verification receipt — AUD-419 through AUD-422 (2026-11-22)
+
+- **Main HEAD before this receipt:** `6460b0b620b8c79e50815ce20b58f08b8553a30c`.
+- **Current static re-fetch:** account-deletion source/test, admin auth source/test, backend inventory, frontend deletion panel/AdminPanel/contract test, and all four audit reports are present. Backend inventory is 1,458; deletion inventory declarations 12; admin-access declarations 4. Static assertions passed.
+- **CI on UI changes:** runs `45038989318`, `45038989321`, `45038985828`, `45038985913` failed before steps; every job has `runner_id=0`, no steps. No tests, frontend build or SQL ran.
+- **Vercel:** main HEAD `2b13f46b882c372a906cb44c809169083d2bc47b` status is `failure` / `build-rate-limit` (“Deployment rate limited — retry in 24 hours”). No deployment acceptance.
+- **Open PRs:** #92–#96 remain open; none merged in this work period. PR #96 storage migration remains unapproved.
+- **Owner gates:** UA-088 backend deletion inventory; UA-089 admin authorization; UA-090 frontend tests/build remain pending. No test PASS claimed.
+- **Safety:** no production DB, deletion worker, payment/provider, Pinterest, Storage, DNS or deployment action.
+- **Next:** owner runs the three local acceptance tasks from current main after sync; continue code review and release gates. No background work claimed.
