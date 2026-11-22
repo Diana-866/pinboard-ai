@@ -4280,3 +4280,16 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Commits:** source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; test `ff5d92c32a5bde0d797b5984b58ebc6650e83fce`; inventory `7d8d946e3658569cbae75746ea95491c4b220300`; audit `8b69e1468136cd6e10bd54e2b53073767652d7b7`.
 - **Static verification:** re-fetched source/test/inventory; 13 declarations in payment creation tests, inventory total 1452. Node runtime NOT RUN; UA-086 pending. No production/provider actions.
 - **Next:** owner executes UA-086; continue adjacent read-only reconciliation review. PR #96 storage migration and runtime/CI acceptance remain release blockers.
+
+
+## Working-period closeout — AUD-417 (2026-11-22)
+
+- **Main HEAD before closeout:** `aeed8657d0ffa76e7c88440a27d819e6d1ce8a1c`.
+- **Published:** payment-creation admin queue now fetches one sentinel row, returns at most the requested limit and reports `truncated`; regression and test inventory updated; AUD-417 and UA-086 documented.
+- **Static re-fetch:** source blob `acbbcc216a9f13de622aa5f0e6fbb9611b35ddf5`; test blob `67ff4e34cce94330ce3b1fd2c8feeee7b7eee71d`; inventory blob `e57af213de55079d5a7a3d54a8b25edb6f3a001d`; audit blob `f755a6c48f7c53e9b6e4512bf7fe5021db437efd`. Static assertions: sentinel fetch/slice/truncated field present; regression present; 13 test declarations match inventory; total 1452.
+- **Commits:** source `64f2bdefe340d13daa28d6cd60d10765c26a3917`; test `ff5d92c32a5bde0d797b5984b58ebc6650e83fce`; inventory `7d8d946e3658569cbae75746ea95491c4b220300`; audit `8b69e1468136cd6e10bd54e2b53073767652d7b7`; PROJECT_STATE closeout commit to follow; UA-086 commit `21804feac552264d25821a86857ab62ae060b719`.
+- **Runtime:** Node tests NOT RUN; owner/local UA-086 pending. No PASS inferred.
+- **CI/deployment:** Vercel status remains `failure` / `build-rate-limit` on the prior inspected HEAD; not a code build result. Actions runner/owner runtime gate remains unresolved.
+- **Release blockers:** PR #96 remains open/unmerged with storage migration acceptance outstanding; local runtime and PostgreSQL migration acceptance remain required.
+- **Safety:** no production DB, live payment/provider, Storage, Pinterest, DNS or deployment operation performed.
+- **Next:** owner runs UA-086; continue independent read-only admin reconciliation review after checking fresh main/docs. No background work claimed.
