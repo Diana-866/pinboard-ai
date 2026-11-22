@@ -2235,3 +2235,9 @@ Commits: route `f7d6ade5601db604b1eb7dfc778aa21769f2bca9`; regression `1d78395fb
 
 Commits: financial implementation `0958b429a9d559ee621dea48c6360afe7b2c4251`; financial tests `78698054d968483de3006d1cfbed315854eb33a0`; credit implementation `d08d535056b611b38133883f4131cafed7174866`; credit test `b31b1f4acc184cd889fcb1d86550f1e7dcc44148`; inventory `19c883abb7811fc0ba7307fc99b267a5e3a73e95`; state `65e80aed5a3ca1507c094b3df1f819c35d3769f2`; owner action `25f9247bee4987dd28abee6bf9f8397d3d75a692`. Runtime NOT RUN; UA-081 records focused/full suite.
 
+### Release blockers — storage cutover and CI/Vercel identity (2026-11-22)
+
+- `docs/USER_ACTIONS.md` UA-079 expanded after review comment `7080191005`: PR #96 custom image base is URL-only until the target provider is wired through upload/read/reconcile/delete/retention/restore; consent timestamp fallback must be reconciled; checksum and Content-Type findings from comment `7080338627` remain.
+- `docs/USER_ACTIONS.md` UA-082 records owner-only Vercel account/commit identity repair and real runner execution. PR #96 Vercel comment `7076491432` reports unverified commit author for `bc3271dcf49b9a093974f03705eeb8a04149abc8`; latest checked main Vercel status is pending. Main Actions jobs still report runner `0`, no steps; runtime acceptance remains blocked.
+- Do not merge PR #96 or enable `PIN_IMAGE_PUBLIC_BASE_URL` for a target S3/CDN until all migration paths and tests are complete. No production migration was performed.
+
