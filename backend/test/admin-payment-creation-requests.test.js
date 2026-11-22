@@ -27,7 +27,9 @@ const db = {
         let data = Object.hasOwn(malformedResults, table)
           ? malformedResults[table]
           : (table === "payment_creation_requests" ? rows : (relatedRows[table] || []));
-        if (Number.isFinite(call.limit)) data = data.slice(0, call.limit);
+        // Подставная база не должна сама падать на искажённом ответе: иначе проверка
+        // «fail closed на null» падала бы в заглушке, а не проверяла код.
+        if (Number.isFinite(call.limit) && Array.isArray(data)) data = data.slice(0, call.limit);
         return Promise.resolve({ data, error: queryErrors[table] || null }).then(resolve, reject);
       },
     };
@@ -225,7 +227,7 @@ test("payment creation inventory reports a truncated queue without returning the
 test("payment reconciliation fails closed when related lookup reaches its safety cap", async () => {
   for (const kind of ["subscriptions", "credit_purchases"]) {
     reset();
-    const rows = Array.from({ length: 1000 }, (_, index => ({
+    const rows = Array.from({ length: 1000 }, (_, index) => ({
       id: kind + "-" + index,
       user_id: "user-1",
       provider_payment_id: "pp-test-order-0001",

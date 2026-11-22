@@ -1,6 +1,6 @@
 {
-  "files": 185,
-  "total": 1518,
+  "files": 186,
+  "total": 1520,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -180,6 +180,7 @@
     "tariff-guard.test.js": 8,
     "tariff-self-select.test.js": 2,
     "tariff.test.js": 8,
+    "test-files-parse.test.js": 2,
     "test-inventory.test.js": 2,
     "text-output-validation.test.js": 14,
     "ui-url-contract.test.js": 3,
