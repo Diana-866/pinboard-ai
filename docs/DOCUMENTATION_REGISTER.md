@@ -2355,3 +2355,13 @@ Commits: financial source `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; payment so
 - Re-fetched current code, regression tests and inventory after cap correction; queries use limit 1,000 and reject a response length of 1,000 (REST cap), not 1,001. Static checks passed; inventory is 1,454.
 - Runtime tests NOT RUN; UA-087 pending. Previous Actions runner failure occurred before steps and is not a test result.
 - No production/provider/deployment actions were performed.
+
+
+## Final verification receipt — AUD-418 (after boundary and runner review, 2026-11-22)
+
+- Main HEAD before this register receipt: `a609bb3d35290737cea9764765506471a53269a8`.
+- Final source/test blobs: `adminFinancialOperations.js` `270da09358bc35f3bd13ed783a1fb328b333259e`; `adminPaymentCreationRequests.js` `0b174793b2e220f79ab8f2fd899b7e82719369ed`; financial regression `a68de96496f757a771e51a9536f83150337aa4e4`; payment regression `e20b087499938fb75cfd23cb8be52fad2d34645e`; inventory `af7f640c0258d68321137767bfbb71c3cb9811c8`; audit `8222af49ccf56b3228a3509743ba239b9f727dde`.
+- Boundary: query limit is 1,000 and any response length 1,000 fails closed; 999 is the maximum accepted matching row count. The tests assert the 1,000-row boundary.
+- Final static assertions passed; inventory 1,454; relevant test declarations 10/14.
+- CI runs `45038055140` and `45038055126` failed with runner ID 0 and no steps; no tests executed. Vercel reports `build-rate-limit` on checked main HEAD; no deployment PASS.
+- UA-087 and PROJECT_STATE receipt commits: `ce4d0abaf9d8f950def6dfddbc0148263dfe70a1` and `a609bb3d35290737cea9764765506471a53269a8`. Runtime remains owner/local pending.
