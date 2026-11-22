@@ -2418,3 +2418,23 @@ AUD-419's initial commit recorded 10 declarations / 1,455 total. AUD-420 subsequ
 - Re-fetched all source/test/inventory/report files; declaration counts match inventory 1,458.
 - Runtime tests NOT RUN; UA-088 and UA-089 pending. Actions runner failure before steps is not test evidence; Vercel quota remains a deployment blocker.
 - No production account deletion, DB, provider, payment, storage, DNS or deployment actions performed.
+
+
+### AUD-422 — account-deletion inventory admin panel (2026-11-22)
+
+| Path | Blob SHA | Change |
+|---|---|---|
+| `frontend/src/components/admin/AdminAccountDeletionInventory.tsx` | `f975dee8970e959aefa247f0e95e5067407afe92` | Read-only inventory, payload validation, truncation warning and stale-data clearing |
+| `frontend/src/components/admin/AdminPanel.tsx` | `e4769e2719c96e1e3c3e3143eae77eebcbb0c1e9` | Admin tab and render integration |
+| `frontend/src/lib/adminPanelDataSafety.test.ts` | `b447525bf0c2cf28c75fb759819b87a2b8433590` | Contract regression for route, tab, partial-list warning and no POST |
+| `docs/audits/AUD-422-account-deletion-admin-panel.md` | `efdf98c043af8d89494d79cd50813c991c90b0d6` | Finding, implementation, static checks and runtime gate |
+
+Commits: component `82986881a2a417795a7d786645bbf15995a58035`; AdminPanel `5c77e59f8d26b6407ff1ba108d275cc332ba1a97` plus header `95ecb0611efc8e6a507add2ff24ee03a59aa24e3`; test `b08f477126531fddab6c71a8bfb41c0cb43fac6c` plus assertion correction `7ec3871f90fc5fc45e7925ad5a4e830c33746cc7`; payload/stale correction `5530f90207c0470c683edf324c78b4df71086053`; audit `25f924129a555ec5cbd15626515c1a5e70781a49`; AUD-420 UI receipt `ad2a77f1e768e5df87173e828bbc344352b00cdf`; UA-090 `02704e1a772844d1db24538b77c63b3d482a2588`; PROJECT_STATE `05e936cd6c9a450658af0dfaf1fc34cb9a9cda58`.
+
+## Final synchronization — AUD-420/AUD-422 (2026-11-22)
+
+- Main HEAD before this register update: `05e936cd6c9a450658af0dfaf1fc34cb9a9cda58`.
+- Re-fetched UI component, AdminPanel, frontend contract test, AUD-420 and AUD-422 reports. Static checks confirm the endpoint, tab, explicit truncated warning, payload validation, stale clearing and no POST.
+- Frontend test glob includes the contract test. Frontend tests and build NOT RUN; UA-090 pending. Backend UA-088 and admin-auth UA-089 remain pending.
+- Current backend inventory 1,458; admin-access 4; deletion inventory 12.
+- No production deletion or external mutation. Actions runner and Vercel quota remain release blockers.
