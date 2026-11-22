@@ -4023,3 +4023,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - Исправлено в regression test: теперь pattern `/^\d{3}_.+\.sql$/` корректно отбирает миграционные filenames. Linux/Windows script range fix не затронут.
 - Это была ошибка тестового fixture, пойманная статическим review до runtime; не считать тест пройденным. Новый test blob и final commit будут записаны после публикации.
 
+
+
+### 2026-11-22 — Windows migration replay summary corrected (AUD-405)
+
+- **Finding:** after AUD-404, Windows replay validation required the correct contiguous 010–166 / 157-file chain, but PASS/FAIL summary still displayed 010–161.
+- **Fix:** `scripts/verify.ps1` summary now says `001 + 010-166`; regression in `backend/test/verify-script-migration-chain.test.js` requires the current range and rejects the stale one.
+- **Evidence:** script commit `d1cdf597e5568951eabbd57f3552e9b984cf29db`, test commit `7a57d1aa16b9aea8971e1093675bc817b355b30a`, audit commit `567b852ede0141f003b6e1a4b70185b6bf9e0d71`.
+- **Runtime:** Node tests and PostgreSQL replay NOT RUN in this session; no runtime PASS claimed.
+- **Safety:** no production database or external service accessed. Owner acceptance remains UA-077.
+- **Next:** refresh CI status and continue the next independent release gate; preserve the local disposable-PostgreSQL acceptance blocker.
