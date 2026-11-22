@@ -35,6 +35,10 @@ const EXEMPT = {
     "Same as the subscription list: a failed read of the customer's own rows, nothing to instruct.",
   "Пакет кредитов не имеет цены в запрошенной валюте":
     "Unreachable by construction: assertCatalogIntegrity refuses to start a catalogue with a missing price. Kept as the fail-closed branch that must never sell a free pack.",
+  "Источник статистики вернул некорректный ответ":
+    "Operator-only email-outbox health endpoint (/admin/billing/email-outbox). This malformed count-query result is an internal data-contract failure; customers cannot act on the message, and the route is guarded by requireAuth and requireAdmin.",
+  "Источник статистики вернул некорректный счётчик":
+    "Same operator-only email-outbox health endpoint: an invalid aggregate count is an internal data-contract failure, not a customer payment state. The endpoint must remain admin-authenticated.",
 };
 
 // Section 113 moved the scanner into test/helpers/bare-5xx-inventory.js: three modules use it now.
@@ -56,6 +60,15 @@ test("every bare 5xx in the payment modules is exempted with a reason", () => {
       "a payment 5xx the customer can act on must carry a code instead of a message nobody sees"
     );
   }
+
+  // The two statistics failures are intentionally operator-only, not customer payment errors.
+  // Keep the route's authorization in the test so the exemption cannot silently become public.
+  const indexSource = fs.readFileSync(path.join(__dirname, "..", "index.js"), "utf8");
+  assert.match(
+    indexSource,
+    /app\.get\("\/admin\/billing\/email-outbox",\s*requireAuth,\s*requireAdmin/,
+    "email-outbox health must remain behind both authentication and admin authorization"
+  );
 
   // A scanner that finds nothing proves nothing: the money path raises these today.
   assert.ok(total >= 5, `the scanner must see the payment 5xx sites, saw ${total}`);
