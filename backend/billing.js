@@ -16,6 +16,7 @@ const { persistProviderReceipt, setProviderDecision } = require("./paymentProvid
 const { httpError, validateEnum } = require("./validate");
 const { paymentLinkNotSaved, paymentOrderPreparationFailed, paymentsNotConfigured, paymentNotStarted } = require("./paymentErrors");
 const { normalizePlan } = require("./tariff");
+const { readArrayQueryResult } = require("./fetchAllPages");
 
 // Каталог тарифов: цены те же, что на лендинге и в PricingView.
 const PLANS = {
@@ -579,16 +580,25 @@ async function requeueEmailOutbox(id, dependencies = {}) {
   };
 }
 
+function readCountQueryResult(result) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw httpError(502, "Источник статистики вернул некорректный ответ. Повторите попытку позже.");
+  }
+  if (result.error) throw result.error;
+  if (!Number.isSafeInteger(result.count) || result.count < 0) {
+    throw httpError(502, "Источник статистики вернул некорректный счётчик. Повторите попытку позже.");
+  }
+  return result.count;
+}
+
 async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
   const db = dependencies.supabase || supabase;
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
   const now = new Date().toISOString();
 
   async function countStatus(status) {
-    let query = db.from("email_outbox").select("id", { count: "exact", head: true }).eq("status", status);
-    const result = await query;
-    if (result.error) throw result.error;
-    return Number(result.count) || 0;
+    const query = db.from("email_outbox").select("id", { count: "exact", head: true }).eq("status", status);
+    return readCountQueryResult(await query);
   }
 
   const [pending, duePending, sending, dead, staleSending, oldestPendingResult, oldestDuePendingResult, deadRowsResult] = await Promise.all([
@@ -621,26 +631,22 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
       .limit(safeLimit),
   ]);
 
-  if (duePending.error) throw duePending.error;
-  if (staleSending.error) throw staleSending.error;
-  if (oldestPendingResult.error) throw oldestPendingResult.error;
-  if (oldestDuePendingResult.error) throw oldestDuePendingResult.error;
-  if (deadRowsResult.error) throw deadRowsResult.error;
+  const duePendingCount = readCountQueryResult(duePending);
+  const staleSendingCount = readCountQueryResult(staleSending);
+  const oldestPendingRows = readArrayQueryResult(oldestPendingResult);
+  const oldestDuePendingRows = readArrayQueryResult(oldestDuePendingResult);
+  const deadRows = readArrayQueryResult(deadRowsResult);
 
-  const oldestPendingAt = oldestPendingResult.data && oldestPendingResult.data[0]
-    ? oldestPendingResult.data[0].created_at
-    : null;
-  const oldestDuePendingAt = oldestDuePendingResult.data && oldestDuePendingResult.data[0]
-    ? oldestDuePendingResult.data[0].next_attempt_at
-    : null;
+  const oldestPendingAt = oldestPendingRows[0] ? oldestPendingRows[0].created_at : null;
+  const oldestDuePendingAt = oldestDuePendingRows[0] ? oldestDuePendingRows[0].next_attempt_at : null;
 
   return {
     generated_at: now,
     counts: {
       pending,
-      due_pending: Number(duePending.count) || 0,
+      due_pending: duePendingCount,
       sending,
-      stale_sending: Number(staleSending.count) || 0,
+      stale_sending: staleSendingCount,
       dead,
     },
     oldest_pending_at: oldestPendingAt,
@@ -651,7 +657,7 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
     oldest_due_pending_age_seconds: oldestDuePendingAt
       ? Math.max(0, Math.floor((Date.now() - new Date(oldestDuePendingAt).getTime()) / 1000))
       : null,
-    dead_items: (deadRowsResult.data || []).map((row) => ({
+    dead_items: deadRows.map((row) => ({
       id: row.id,
       attempts: row.attempts,
       max_attempts: row.max_attempts,
@@ -664,14 +670,14 @@ async function getEmailOutboxHealth(limit = 20, dependencies = {}) {
 
 // Список подписок пользователя (для кабинета)
 async function listUserSubscriptions(userId, limit = 20) {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("subscriptions")
     .select("id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id")
     .eq("user_id", String(userId))
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
-  return data || [];
+  if (result.error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
+  return readArrayQueryResult(result);
 }
 
 // Список подписок для админки: подписки + email пользователей одним проходом
@@ -683,19 +689,21 @@ function normalizeAdminSubscriptionLimit(value) {
 
 async function listAllSubscriptions(limit = 100) {
   const safeLimit = normalizeAdminSubscriptionLimit(limit);
-  const { data, error } = await supabase
+  const result = await supabase
     .from("subscriptions")
     .select("id, user_id, plan, status, amount, currency, period_start, period_end, created_at, provider_payment_id")
     .order("created_at", { ascending: false })
     .limit(safeLimit);
-  if (error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
+  if (result.error) throw httpError(500, "Не удалось получить подписки — примените миграцию 006");
 
-  const rows = data || [];
+  const rows = readArrayQueryResult(result);
   const ids = [...new Set(rows.map((r) => r.user_id))];
   let emails = {};
   if (ids.length > 0) {
-    const { data: users } = await supabase.from("users").select("id, email").in("id", ids);
-    (users || []).forEach((u) => {
+    const usersResult = await supabase.from("users").select("id, email").in("id", ids);
+    if (usersResult.error) throw usersResult.error;
+    const users = readArrayQueryResult(usersResult);
+    users.forEach((u) => {
       emails[String(u.id)] = u.email;
     });
   }
