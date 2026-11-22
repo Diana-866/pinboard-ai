@@ -4293,3 +4293,27 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Release blockers:** PR #96 remains open/unmerged with storage migration acceptance outstanding; local runtime and PostgreSQL migration acceptance remain required.
 - **Safety:** no production DB, live payment/provider, Storage, Pinterest, DNS or deployment operation performed.
 - **Next:** owner runs UA-086; continue independent read-only admin reconciliation review after checking fresh main/docs. No background work claimed.
+
+
+### 2026-11-22 — Bounded financial reconciliation match reads (AUD-418)
+
+- **Base:** `817ccb0de8b6ae042114418483412cf406eca035`.
+- **Finding:** two read-only admin reconciliation lookups could consume REST-capped related-record arrays without detecting truncation. A hidden duplicate could be mistaken for a unique payment/reservation match.
+- **Fix:** generation/regeneration reservation matches and subscription/credit purchase matches now request a 1,001-row sentinel and fail closed with HTTP 502 if more than 1,000 rows are returned. No incomplete array is used for matching.
+- **Regressions:** added 1,001-row cap tests for both modules; payment-creation query mock now honors `.limit()` for every table. Test inventory 1452 → 1454; financial tests 9 → 10; payment-creation tests 13 → 14.
+- **Commits:** financial source `3149361bb8303ac23ea9722eb0ec57a11d2dc459`; payment source `095ac7f6973b27617e1a083668a3e9e6ca4288c9`; financial regression `2e676b0e22815453357285b02853cc34d2b70533`; payment regression `ca3ee79327080df60c2c27fa5a6ad227fafb3fa7`; inventory `1af375d1bb45fa54e502c688e726cd46d7f5a933`; audit `e81d24fc2402335b30de602222efd9ec9b02207c`.
+- **Static verification:** re-fetched all changed code/test/inventory files; bounds and guards confirmed; five-file compare contains only the intended two source files, two tests and inventory; inventory is 1454.
+- **Runtime:** NOT RUN. Actions runner allocation remains unavailable (runner ID 0/no steps in prior run); UA-087 requires owner/local Node 22 focused and full tests. No PASS claimed.
+- **Safety:** no production database, live payment/provider, Storage, Pinterest, DNS or deployment touched.
+- **Documentation:** AUD-418 report; UA-087; register entry; this state entry.
+- **Next:** owner runtime acceptance UA-087; then continue remaining admin/payment reconciliation review and CI runner/deployment release gates.
+
+## Working-period closeout — AUD-418 (2026-11-22)
+
+- **Base HEAD:** `817ccb0de8b6ae042114418483412cf406eca035`.
+- **Code/test/inventory:** published five intended files; audit and owner action documented. Current inventory 1,454 declarations.
+- **Static re-fetch:** passed for both source modules, both regression files and inventory; exact blob SHAs are in `docs/audits/AUD-418-bounded-financial-reconciliation-reads.md`.
+- **Runtime:** NOT RUN in this session; UA-087 pending. No test PASS inferred.
+- **CI/PR/deployment:** Actions runner allocation and external integration acceptance remain release blockers; PR #96 remains open/unmerged and storage migration is not approved.
+- **Safety:** no production or external state changed.
+- **Next:** execute UA-087 locally; continue independent code review after fresh HEAD/docs check. No background work claimed.
