@@ -4327,3 +4327,15 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Vercel:** status on checked HEAD is `failure` / `build-rate-limit` (deployment rate limited; retry in 24 hours). This is an account quota blocker, not a source build result.
 - **Runtime:** UA-087 remains pending. No tests are claimed passed by this session.
 - **Next:** owner runs focused and full Node 22 tests locally or restores a working runner; after acceptance continue independent reconciliation review. Production release remains blocked.
+
+
+### 2026-11-22 — Null account-deletion inventory results fail closed (AUD-419)
+
+- **Base:** `f3b89191493cc2ccd8d64bba77dbdd49d14faf2d`.
+- **Finding:** successful malformed null list responses for oldest pending deletion and attention jobs bypassed validation; null jobs were coerced to an empty list, potentially hiding stuck legal-deletion work.
+- **Fix:** both list results now must be arrays; null-to-empty fallbacks removed. The test mock preserves explicit null and regression covers both query stages.
+- **Commits:** source `07acd29fdcf0a9b6de493ac57185f286bc325670`; regression `8f82af5141e4941a833ffd0e127149eec2c29faa`; inventory `7e0de2be65baceb12bed3a851075da7a1477951f`; audit `725a7648f6142b5ffaf215ca1982dd5519f315c9`.
+- **Static verification:** source/test/inventory re-fetched; strict array guards confirmed; 10 test declarations match inventory; total 1455.
+- **Runtime:** NOT RUN; UA-088 pending. Actions runner allocation failure means no test result.
+- **Safety:** no production DB, account deletion, provider, storage, DNS or deployment action.
+- **Next:** owner/local UA-088 focused and full Node 22 tests; continue admin/read-path review.
