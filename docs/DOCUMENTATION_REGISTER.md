@@ -2252,3 +2252,9 @@ Commits: financial implementation `0958b429a9d559ee621dea48c6360afe7b2c4251`; fi
 
 Commits: source `866a82064770f545c2444cc510cf513c0a6f5c5e`; regression `188a2e95daf9bfd6369f2f1b6671abae6b2c221b`; inventory `82e84cfed96c1b685ec18614489a5428957ea445`; state `b540153ba55a31ad03f9a6e0869762da838c8911`; owner action `222fc0e49acbbaa372785784926a4dfba34ad922`. Runtime NOT RUN; UA-081 includes focused/full test suite.
 
+### Current release verification update — 2026-11-22
+
+- Vercel status for `1a36afa502f570d3d36290e4837207ddeca20876` is `success`. This supersedes the earlier pending status recorded during the AUD-410–412 closeout. UA-082 reflects the updated result.
+- Actions for `82e84cfed96c1b685ec18614489a5428957ea445` still fail with no steps/logs. Runtime tests remain NOT RUN; no PASS asserted.
+- AUD-413 source/test/inventory and audit are recorded above; latest closeout in `docs/PROJECT_STATE.md` documents the exact verification boundary.
+
