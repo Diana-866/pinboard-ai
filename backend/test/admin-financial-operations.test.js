@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const supabasePath = require.resolve("../supabase");
 const modulePath = require.resolve("../adminFinancialOperations");
 const oldTimestamp = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+let malformedRead = null;
+const queryCounts = new Map();
 
 const fixtures = {
   pin_generation_requests: [
@@ -23,6 +25,8 @@ const fixtures = {
 
 const supabaseMock = {
   from(table) {
+    const queryNumber = (queryCounts.get(table) || 0) + 1;
+    queryCounts.set(table, queryNumber);
     const query = {
       select() { return this; },
       eq() { return this; },
@@ -35,6 +39,9 @@ const supabaseMock = {
         return this;
       },
       then(resolve, reject) {
+        if (malformedRead && malformedRead.table === table && malformedRead.call === queryNumber) {
+          return Promise.resolve({ data: null, error: null }).then(resolve, reject);
+        }
         let data = fixtures[table] || [];
         if (this.filterColumn) data = data.filter((row) => this.filterValues.includes(row[this.filterColumn]));
         return Promise.resolve({ data, error: null }).then(resolve, reject);
@@ -148,4 +155,25 @@ test("truncation outranks every derived reason", () => {
   assert.equal(summarizeGenerationTasks(tasks, { truncated: true }).reason, TASKS_TRUNCATED_REASON);
   assert.equal(summarizeGenerationTasks([], { truncated: true }).reason, TASKS_TRUNCATED_REASON);
   assert.equal(summarizeGenerationTasks([], {}).reason, "task_journal_missing_or_legacy");
+});
+
+test("financial reconciliation refuses malformed primary, task and matching-request query envelopes", async () => {
+  const scenarios = [
+    { table: "pin_generation_requests", call: 1 },
+    { table: "pin_regeneration_requests", call: 1 },
+    { table: "pin_generation_credit_reservations", call: 1 },
+    { table: "pin_generation_tasks", call: 1 },
+    { table: "pin_generation_requests", call: 2 },
+    { table: "pin_regeneration_requests", call: 2 },
+  ];
+  for (const scenario of scenarios) {
+    malformedRead = scenario;
+    queryCounts.clear();
+    await assert.rejects(
+      getFinancialOperationsQueue({ limit: 10 }),
+      (error) => error.httpStatus === 502
+    );
+  }
+  malformedRead = null;
+  queryCounts.clear();
 });
