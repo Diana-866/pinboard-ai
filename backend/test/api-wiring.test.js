@@ -5,6 +5,7 @@ require("./helpers/env");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
+const { reservePort } = require("./helpers/free-port");
 const path = require("node:path");
 const { startFakePostgrest } = require("./helpers/fake-postgrest");
 
@@ -25,47 +26,55 @@ const API_LIMIT = 20;
 async function startBackend({ apiLimit = API_LIMIT, extraEnv = {} } = {}) {
   const db = startFakePostgrest();
   const dbUrl = await db.listen();
-  const port = 34000 + Math.floor(Math.random() * 2000);
+  // См. test/helpers/free-port.js: случайный порт из диапазона сталкивается по парадоксу дней
+  // рождения и даёт ложное «backend did not start».
+  let port = await reservePort();
 
-  const child = spawn(process.execPath, [ENTRY], {
-    cwd: BACKEND,
-    env: {
-      ...process.env,
-      NODE_ENV: "test",
-      PORT: String(port),
-      SUPABASE_URL: dbUrl,
-      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
-      SUPABASE_ANON_KEY: "test-anon-key",
-      JWT_SECRET: "test-jwt-secret-not-for-production",
-      FRONTEND_URL: "https://app.example.com",
-      API_RATE_LIMIT_MAX: String(apiLimit),
-      API_RATE_LIMIT_WINDOW_MS: "60000",
-      // Keep the optional workers out of the picture: this suite is about the HTTP surface.
-      ACCOUNT_DELETION_WORKER_ENABLED: "",
-      ...extraEnv,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
+  let child = null;
   let output = "";
-  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
-  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
-
-  const base = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 20_000;
+  let base = "";
   let ready = false;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) break;
-    try {
-      const response = await fetch(`${base}/health`);
-      if (response.ok) { ready = true; break; }
-    } catch {
-      // not listening yet
+  for (let attempt = 0; attempt < 3 && !ready; attempt += 1) {
+    child = spawn(process.execPath, [ENTRY], {
+      cwd: BACKEND,
+      env: {
+        ...process.env,
+        NODE_ENV: "test",
+        PORT: String(port),
+        SUPABASE_URL: dbUrl,
+        SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+        SUPABASE_ANON_KEY: "test-anon-key",
+        JWT_SECRET: "test-jwt-secret-not-for-production",
+        FRONTEND_URL: "https://app.example.com",
+        API_RATE_LIMIT_MAX: String(apiLimit),
+        API_RATE_LIMIT_WINDOW_MS: "60000",
+        ACCOUNT_DELETION_WORKER_ENABLED: "",
+        ...extraEnv,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    output = "";
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+
+    base = `http://127.0.0.1:${port}`;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) break;
+      try {
+        const response = await fetch(`${base}/health`);
+        if (response.ok) { ready = true; break; }
+      } catch {
+        // not listening yet
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!ready) {
+      child.kill("SIGKILL");
+      port = await reservePort();
+    }
   }
   if (!ready) {
-    child.kill("SIGKILL");
     await db.close();
     throw new Error(`backend did not start:\n${output}`);
   }
