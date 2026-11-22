@@ -1,5 +1,9 @@
 const supabase = require("./supabase");
 const { readArrayQueryResult } = require("./fetchAllPages");
+const { httpError } = require("./validate");
+
+const MAX_MATCH_QUERY_ROWS = 1000;
+const MATCH_QUERY_LIMIT = MAX_MATCH_QUERY_ROWS + 1;
 
 function clampInteger(value, fallback, min, max) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -134,13 +138,21 @@ async function getFinancialOperationsQueue(options = {}) {
     const [generationMatches, regenerationMatches] = await Promise.all([
       supabase.from("pin_generation_requests")
         .select("id,user_id,idempotency_key,status")
-        .in("idempotency_key", reservationKeys),
+        .in("idempotency_key", reservationKeys)
+        .limit(MATCH_QUERY_LIMIT),
       supabase.from("pin_regeneration_requests")
         .select("id,user_id,idempotency_key,status")
-        .in("idempotency_key", reservationKeys),
+        .in("idempotency_key", reservationKeys)
+        .limit(MATCH_QUERY_LIMIT),
     ]);
     const generationMatchRows = readArrayQueryResult(generationMatches);
     const regenerationMatchRows = readArrayQueryResult(regenerationMatches);
+    // The REST layer can silently cap a response. More than this bound is unsafe for
+    // reconciliation: a hidden duplicate could turn an ambiguous match into a single match.
+    if (generationMatchRows.length > MAX_MATCH_QUERY_ROWS ||
+        regenerationMatchRows.length > MAX_MATCH_QUERY_ROWS) {
+      throw httpError(502, "Слишком много совпадений для безопасной сверки. Требуется ручная проверка.");
+    }
     reservationRequestRows = [
       ...generationMatchRows.map((row) => ({ ...row, operation: "generation" })),
       ...regenerationMatchRows.map((row) => ({ ...row, operation: "regeneration" })),
