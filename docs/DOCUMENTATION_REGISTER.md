@@ -2305,3 +2305,5 @@ Commits: source `7b7ddd4c475d0f2fa5526beeaba917687c2e9e1b`; test `b9a9523044893b
 
 
 | AUD-415 | `docs/audits/AUD-415-admin-financial-reservation-truncation.md` | Financial admin queue bug: truncation flag was calculated after slicing; fix/test/inventory commits and runtime limitation recorded. |
+
+| AUD-416 | `docs/audits/AUD-416-scoped-generation-task-truncation.md` | Scopes task-journal truncation to affected request batches; regression and runtime limitation recorded. |
