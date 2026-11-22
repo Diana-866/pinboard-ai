@@ -2381,7 +2381,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 3. удалена строка хронологии `8d234c5f` → `commits with no row in the chronology: 8d234c5f feat(ops): smoke check…`;
 4. освобождение для `docs:`-коммитов объявлено для всех коммитов → проверка «освобождение не маскирует код» **сразу нашла реальный случай**: `422efd34` с заголовком `docs:` менял страж `documentation-integrity.test.js` (строка 172 реестра добавлена задним числом). Инвариант «`docs:`-коммит трогает только `docs/`» теперь проверяется для **каждого** такого коммита, а не только для освобождённого.
 
-### 56.4. Приложение. Полная хронология коммитов сессии (126)
+### 56.4. Приложение. Полная хронология коммитов сессии (127)
 
 Каждая строка: хеш, дата, суть и адрес, где объяснено «зачем». Разделы — в этом документе, строки — в реестре действий, UA — в `docs/USER_ACTIONS.md`.
 
@@ -2727,6 +2727,7 @@ backend **958/958**, frontend **308/308**, `tsc` чисто, `vite build` усп
 | `72485e6a` | 2026-11-22 | docs: flaky-suite fix section 165.11; reconcile chronology rows | §165.11 |
 | `47bd67f2` | 2026-11-22 | feat(qa): acceptance scenarios on the bench (password reset, onboarding, boards, isolation, deletion gate) | §165.12 |
 | `2b45c75a` | 2026-11-22 | docs: acceptance run (20/20), readiness 69%, chronology rows | §165.12 |
+| `40856c0c` | 2026-11-22 | feat(storage): resumable object copy from Supabase Storage to S3 for the migration | §165.13 |
 
 | `27c064c9` | 2026-11-22 | fix(deploy): harden image, backup and restore verification after independent review | §165.10 |
 | `1d096b4f` | 2026-11-22 | docs: section 165.10 and chronology rows for the deploy hardening commit | §165.10 |
@@ -6486,3 +6487,20 @@ PostgreSQL, те же расширения, роли уже созданы, `PGH
 Отдельно зафиксировано, чего скрипт не делает: не переписывает публичные ссылки в базе и не переключает
 базовый адрес в приложении (`PIN_IMAGE_PUBLIC_BASE_URL`) — это следующие шаги, описанные в
 `docs/RUNBOOK_DEPLOY_AMVERA.md`, шаг 2.5.
+
+### 165.14. Ссылки на изображения: смена базового адреса и переписывание в базе
+
+Копии объектов мало: в `pins.image_url` хранятся абсолютные ссылки на старый домен Supabase.
+
+1. **Приложение.** Добавлена переменная `PIN_IMAGE_PUBLIC_BASE_URL`: если задана, новые ссылки строятся
+   от неё (`storage.js`), а при удалении объект распознаётся и по старым, и по новым префиксам
+   (`extractManagedPinImagePathFromBase`). Без второго старые картинки после переезда стали бы
+   неудаляемыми. Некорректное значение переменной игнорируется с предупреждением, а не ломает ссылки.
+2. **База.** `scripts/rewrite-image-urls.js`: читает `pins` через REST (Supabase или PostgREST), меняет
+   только строки с префиксом `--from`, по умолчанию план, пишет манифест изменённых строк, идемпотентен.
+
+**Проверка на стенде (PostgREST + PostgreSQL):** создан пин со ссылкой
+`https://old-cdn.example.com/pin-images/pins/1700000000000-abc12345.png`; режим плана показал одну строку
+и ничего не изменил; `--apply` изменил её на `https://cdn.pinposy.com/...` (проверено чтением из базы),
+повторный запуск нашёл 0 строк. Юнит-тест на распознавание нового префикса добавлен в
+`test/pin-image-lifecycle.test.js`.

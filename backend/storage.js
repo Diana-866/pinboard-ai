@@ -6,9 +6,29 @@ const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
-const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, EXPECTED_PIN_IMAGE_MIMES } = require("./pinImageLifecycle");
+const { extractManagedPinImagePath, extractManagedPinImagePathFromBase, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, EXPECTED_PIN_IMAGE_MIMES } = require("./pinImageLifecycle");
 
 const BUCKET = "pin-images";
+
+/**
+ * Публичный префикс ссылок на изображения, если хранилище не Supabase.
+ *
+ * При переезде картинки уезжают в S3-совместимое хранилище или за CDN, и Supabase больше не
+ * строит для них адреса. Переменная задаёт префикс (например, https://cdn.pinposy.com/pin-images),
+ * от которого строятся новые ссылки; пустое или некорректное значение игнорируется, чтобы опечатка
+ * в конфигурации не превращала все картинки в битые ссылки.
+ */
+function pinImagePublicBase() {
+  const raw = String(process.env.PIN_IMAGE_PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!raw) return null;
+  try {
+    new URL(raw);
+    return raw;
+  } catch {
+    logWarning("storage.event_003");
+    return null;
+  }
+}
 const ALLOWED_IMAGE_MIMES = EXPECTED_PIN_IMAGE_MIMES;
 let bucketReady = false;
 
@@ -84,6 +104,8 @@ async function uploadPinImage(file, options = {}) {
     throw httpError(500, "Не удалось сохранить изображение: " + (error && error.message));
   }
 
+  const publicBase = pinImagePublicBase();
+  if (publicBase) return `${publicBase}/${path}`;
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   if (!data || !data.publicUrl) throw httpError(500, "Не удалось получить ссылку на изображение");
   return data.publicUrl;
@@ -93,7 +115,10 @@ async function uploadPinImage(file, options = {}) {
 // and upload reservations serialize pins, schedules and generation journals
 // against both Storage writes and deletes.
 async function deletePinImageIfUnreferenced(imageUrl) {
-  const objectPath = extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
+  const publicBase = pinImagePublicBase();
+  const objectPath = publicBase
+    ? extractManagedPinImagePathFromBase(imageUrl, publicBase, BUCKET)
+    : extractManagedPinImagePath(imageUrl, process.env.SUPABASE_URL, BUCKET);
   if (!objectPath) return false;
   return deleteManagedPinImageObject({ supabase, bucket: BUCKET, objectPath });
 }
@@ -118,6 +143,8 @@ function imageAlreadyStoredError(message) {
 }
 
 function getManagedPinImagePublicUrl(objectPath) {
+  const publicBase = pinImagePublicBase();
+  if (publicBase) return `${publicBase}/${objectPath}`;
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
   if (!data || typeof data.publicUrl !== "string" || !data.publicUrl.trim()) {
     throw imageAlreadyStoredError("Изображение уже сохранено, но ссылка на него временно недоступна. Повторите восстановление позже");

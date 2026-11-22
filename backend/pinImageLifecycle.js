@@ -30,6 +30,36 @@ function validatePinImageBucketConfiguration(bucket) {
   return true;
 }
 
+/** Имя объекта, созданное только uploadPinImage: чужие имена не трогаем. */
+const MANAGED_PIN_IMAGE_NAME = /^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i;
+
+/** Путь объекта из ссылки, если она начинается с произвольного публичного префикса.
+ *
+ * Нужен при переезде: старые ссылки построены от адреса Supabase, новые — от CDN или
+ * S3-хранилища (PIN_IMAGE_PUBLIC_BASE_URL). Пока в базе есть ссылки обоих видов, удаление
+ * должно узнавать свои объекты по любому из префиксов, иначе старые картинки станут
+ * неудаляемыми, а новые — «чужими».
+ */
+function extractManagedPinImagePathFromBase(publicUrl, publicBaseUrl, bucket = "pin-images") {
+  if (!publicUrl || !publicBaseUrl) return null;
+  try {
+    const objectUrl = new URL(String(publicUrl));
+    const baseUrl = new URL(String(publicBaseUrl));
+    if (objectUrl.origin !== baseUrl.origin) return null;
+    const basePath = baseUrl.pathname.replace(/\/+$/, "");
+    // Префикс может уже включать бакет (https://cdn.example.com/pin-images), а может нет
+    // (https://cdn.example.com) — поддерживаем оба вида, не угадывая за оператора.
+    const prefixes = [`${basePath}/${bucket}/`, `${basePath}/`].filter((prefix) => prefix !== "/");
+    const prefix = prefixes.find((candidate) => objectUrl.pathname.startsWith(candidate));
+    if (!prefix) return null;
+    const objectPath = decodeURIComponent(objectUrl.pathname.slice(prefix.length));
+    if (!MANAGED_PIN_IMAGE_NAME.test(objectPath)) return null;
+    return objectPath;
+  } catch {
+    return null;
+  }
+}
+
 function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images") {
   if (!publicUrl || !supabaseUrl) return null;
   try {
@@ -42,7 +72,7 @@ function extractManagedPinImagePath(publicUrl, supabaseUrl, bucket = "pin-images
     const objectPath = decodeURIComponent(objectUrl.pathname.slice(prefix.length));
     // Only remove objects created by uploadPinImage; leave legacy or foreign
     // object names untouched rather than guessing their ownership.
-    if (!/^pins\/(?:[0-9]+-[a-z0-9]{1,32}|generation-[a-f0-9]{32})\.(?:png|jpe?g|webp|gif)$/i.test(objectPath)) return null;
+    if (!MANAGED_PIN_IMAGE_NAME.test(objectPath)) return null;
     return objectPath;
   } catch {
     return null;
@@ -543,5 +573,6 @@ module.exports = {
   retryFailedPinImageDeletions,
   processPendingPinImageRetentionQueue,
   extractManagedPinImagePath,
+  extractManagedPinImagePathFromBase,
   buildPinImageObjectPath,
 };
