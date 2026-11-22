@@ -4037,3 +4037,19 @@ npm.cmd test
 - **Acceptance:** focused and full backend suites exit 0; test verifies limit=1 fetches a second sentinel row, returns exactly one item and reports `truncated=true`; inventory reports 13 declarations for `admin-payment-creation-requests.test.js` and total 1452.
 - Report exact tested HEAD, command, test summary and exit code. Use test harness only; do not connect to production Supabase, Prodamus, Storage or real payment records.
 - **What this proves:** local Node regression only, not provider or production acceptance.
+
+
+## UA-087 — Runtime acceptance for bounded financial reconciliation reads (AUD-418)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Base code:** `817ccb0de8b6ae042114418483412cf406eca035`.
+- **Changes:** financial reservation matching and payment-creation reconciliation now cap related-record reads at 1,001 rows and return HTTP 502 when the 1,001-row sentinel is reached; this prevents a REST-capped prefix from being treated as a complete unique match.
+- **After syncing latest `main`, from repository root in PowerShell:**
+  ```powershell
+  cd backend
+  node --test test/admin-financial-operations.test.js test/admin-payment-creation-requests.test.js test/test-inventory.test.js
+  npm.cmd test
+  ```
+- **Acceptance:** focused tests and full backend suite exit 0; each related lookup kind (generation, regeneration, subscriptions, credit purchases) fails closed at >1,000 rows; inventory is exactly 1,454 declarations (financial test file 10; payment-creation test file 14).
+- Report exact tested HEAD, commands, test summary and exit codes. Do not connect production Supabase, Prodamus, live payments, Storage or Pinterest.
+- **What this proves:** local Node regression only. It does not prove production data shape, provider behavior, CI runner availability, deployment or payment settlement.
