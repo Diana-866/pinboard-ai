@@ -2452,12 +2452,41 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
       }));
     }
 
+    let attempts;
+    let publications;
+    let duplicates;
+    const accountData = accountResult.data;
+    const accountMalformed = accountData != null && (
+      typeof accountData !== "object" || Array.isArray(accountData) || String(accountData.id || "") !== accountId
+    );
+    try {
+      attempts = readArrayQueryResult(attemptsResult);
+      publications = readArrayQueryResult(publicationsResult);
+      duplicates = readArrayQueryResult(duplicatesResult);
+    } catch {
+      logError("index.event_006");
+      return res.json(sanitizeScheduleForClient({
+        ...updated,
+        retryable: false,
+        retry_reason: "metadata_unavailable",
+        failure_reason: getScheduleFailureReason(updated),
+      }));
+    }
+    if (accountMalformed) {
+      logError("index.event_006");
+      return res.json(sanitizeScheduleForClient({
+        ...updated,
+        retryable: false,
+        retry_reason: "metadata_unavailable",
+        failure_reason: getScheduleFailureReason(updated),
+      }));
+    }
     const retry = getScheduleRetryability(
       updated,
-      (attemptsResult.data || [])[0] || null,
-      (publicationsResult.data || []).length > 0,
-      !!accountId && !!accountResult.data,
-      (duplicatesResult.data || []).length > 0
+      attempts[0] || null,
+      publications.length > 0,
+      !!accountId && !!accountData,
+      duplicates.length > 0
     );
     res.json(sanitizeScheduleForClient({
       ...updated,
@@ -3244,7 +3273,7 @@ app.get("/admin/billing/webhook-exceptions", requireAuth, requireAdmin, async (r
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
-    res.json({ exceptions: data || [] });
+    res.json({ exceptions: readArrayQueryResult({ data, error }) });
   } catch (e) {
     handleError(res, e);
   }
@@ -3280,14 +3309,16 @@ app.get("/admin/billing/pending-orders", requireAuth, requireAdmin, async (req, 
     ]);
     if (subscriptionsResult.error) throw subscriptionsResult.error;
     if (creditsResult.error) throw creditsResult.error;
+    const subscriptions = readArrayQueryResult(subscriptionsResult);
+    const creditPurchases = readArrayQueryResult(creditsResult);
 
     const now = Date.now();
     const orders = [
-      ...(subscriptionsResult.data || []).map((row) => ({
+      ...subscriptions.map((row) => ({
         kind: "subscription", ...row,
         age_hours: Math.max(0, Math.floor((now - new Date(row.created_at).getTime()) / 3600000)),
       })),
-      ...(creditsResult.data || []).map((row) => ({
+      ...creditPurchases.map((row) => ({
         kind: "credits", ...row,
         age_hours: Math.max(0, Math.floor((now - new Date(row.created_at).getTime()) / 3600000)),
       })),
