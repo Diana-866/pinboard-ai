@@ -484,6 +484,15 @@ test("stale upload quarantine retires exact paths with their current fencing tok
   assert.equal(calls[1].args.p_upload_token, "token-b");
 });
 
+test("stale upload quarantine rejects a malformed inventory envelope before any mutation", async () => {
+  const supabase = makeStorageClient({ staleUploads: null });
+  await assert.rejects(
+    () => quarantineStalePinImageUploads({ supabase }),
+    (error) => error && error.httpStatus === 502
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["list_stale_pin_image_uploads"]);
+});
+
 test("stale upload quarantine skips rows without a valid fencing token", async () => {
   const supabase = makeStorageClient({
     staleUploads: [{ bucket_id: "pin-images", object_path: "pins/1730000000000-ab12cd34.webp" }],
@@ -497,6 +506,15 @@ test("stale upload quarantine skips rows without a valid fencing token", async (
     }],
   });
   assert.equal(supabase.calls.some((call) => call.name === "quarantine_stale_pin_image_upload"), false);
+});
+
+test("stale upload reconciliation rejects a malformed inventory envelope before Storage inspection", async () => {
+  const supabase = makeStorageClient({ staleUploads: null });
+  await assert.rejects(
+    () => reconcileStalePinImageUploads({ supabase }),
+    (error) => error && error.httpStatus === 502
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), ["list_stale_pin_image_uploads"]);
 });
 
 test("stale upload reconciliation is observational even when the exact object is visible", async () => {
