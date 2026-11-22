@@ -3854,3 +3854,12 @@ npm.cmd test
 - **Code/test commits:** `d1cdf597e5568951eabbd57f3552e9b984cf29db`, `7a57d1aa16b9aea8971e1093675bc817b355b30a`. Audit: `567b852ede0141f003b6e1a4b70185b6bf9e0d71`.
 - **Required action:** from a fresh checkout of current `main`, run the backend test suite and then `powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -MigrationsOnly` against a disposable local PostgreSQL instance only. Save full stdout/stderr and exit code. Do not use PIN_TRIAL or production.
 - **Acceptance:** report the actual result; if PostgreSQL setup is not isolated or the test fails, stop and provide the exact error. Do not mark runtime verified based on static source review.
+
+### AUD-404/AUD-405 final GitHub reconciliation — 2026-11-22
+
+- Re-read main after concurrent updates; preserved AUD-405 commits and subsequent docs commits rather than overwriting them.
+- Verified current code/test blobs: `verify.sh` `ae05d6f5075091475ade646b9c3eaafd9ded899e`, `verify.ps1` `d4f447d08c92fcbc6585103867d691d7a749e881`, test `03a9fba19b7b65096e9d142106f6cc349568de29`.
+- Latest Actions runs `45031148970`, `45031148954`, `45031140844` all show runner_id 0 and no steps. No Node or PostgreSQL runtime result.
+- Vercel success on docs HEAD `6bba725...`; no deployment claim.
+- PR #96 comment `7080314663` asks rebase/reconciliation of the migration sequence; PR not merged.
+- UA-077/078 remain pending. Final docs closeout is being committed on top of current verified main; final SHA will be checked.

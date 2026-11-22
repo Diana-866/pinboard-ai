@@ -4033,3 +4033,13 @@ The detailed stable-pagination audit now includes the null/invalid inventory-pag
 - **Runtime:** Node tests and PostgreSQL replay NOT RUN in this session; no runtime PASS claimed.
 - **Safety:** no production database or external service accessed. Owner acceptance remains UA-077.
 - **Next:** refresh CI status and continue the next independent release gate; preserve the local disposable-PostgreSQL acceptance blocker.
+
+### 2026-11-22 — AUD-404/AUD-405 release-gate closeout (main reconciliation)
+
+- **Current main before this docs commit:** `6bba725ff4e60ba5163da210ad49f6e8a200eec3`.
+- **Code/test commits:** AUD-404 verify scripts `4ff3b3509d103ae27d945c1faf7bb2e289112428`; regex correction `e02b16f3d1e0a2625878a172f49c9379295cb7b2`; AUD-405 Windows summary `d1cdf597e5568951eabbd57f3552e9b984cf29db`; regression `7a57d1aa16b9aea8971e1093675bc817b355b30a`.
+- **Current blobs:** verify.sh `ae05d6f5075091475ade646b9c3eaafd9ded899e`; verify.ps1 `d4f447d08c92fcbc6585103867d691d7a749e881`; test `03a9fba19b7b65096e9d142106f6cc349568de29`.
+- **CI:** runs `45031148970`, `45031148954`, `45031140844` failed before steps (`runner_id=0`, `steps=[]`). No runtime tests or SQL replay executed.
+- **Vercel:** `success` on current docs HEAD; not production deployment proof.
+- **PR #96:** comment `7080314663` added; PR remains open, consent/storage cutover blockers remain.
+- **Owner gates:** UA-077 and UA-078 local disposable PostgreSQL/backend acceptance pending. No production SQL executed.

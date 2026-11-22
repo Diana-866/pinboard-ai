@@ -2131,3 +2131,12 @@ Post-publication static review caught and corrected a double-escaped regex in th
 | `docs/audits/2026-11-22-windows-migration-summary-range.md` | created in commit `567b852ede0141f003b6e1a4b70185b6bf9e0d71` | Root cause, exact changes and verification boundary |
 
 Commits: script `d1cdf597e5568951eabbd57f3552e9b984cf29db`; test `7a57d1aa16b9aea8971e1093675bc817b355b30a`; audit `567b852ede0141f003b6e1a4b70185b6bf9e0d71`; state `3a70e433a0d41698efd20092366c4b99cf2b1433`; owner action `97bffe6f772929a42434a7c9e1ac13444c9fc2a7`. Runtime Node/PostgreSQL NOT RUN; UA-078 records the local acceptance action.
+
+### AUD-404/AUD-405 final evidence reconciliation — 2026-11-22
+
+- AUD-404 source commit `4ff3b3509d103ae27d945c1faf7bb2e289112428`; test regex correction `e02b16f3d1e0a2625878a172f49c9379295cb7b2`.
+- AUD-405 Windows summary source `d1cdf597e5568951eabbd57f3552e9b984cf29db`; regression `7a57d1aa16b9aea8971e1093675bc817b355b30a`; audit `567b852ede0141f003b6e1a4b70185b6bf9e0d71`.
+- Current source/test blobs: `scripts/verify.sh` `ae05d6f5075091475ade646b9c3eaafd9ded899e`; `scripts/verify.ps1` `d4f447d08c92fcbc6585103867d691d7a749e881`; `backend/test/verify-script-migration-chain.test.js` `03a9fba19b7b65096e9d142106f6cc349568de29`.
+- Actions jobs `137234810601`, `137234810203`, `137234810090`, `137234784041`, `137234784261` all runner allocation failure with zero steps. Vercel status success on docs HEAD; no deployment proof.
+- PR #96 comment `7080314663`; release runtime acceptance remains UA-077/078.
+

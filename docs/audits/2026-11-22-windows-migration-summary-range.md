@@ -24,3 +24,7 @@ The exact changed files were published to `main`; this connector session did not
 ## Next step
 
 Continue reviewing the latest verification workflow/job outcome and the next unresolved release gate in `docs/PROJECT_STATE.md`; do not mark runtime acceptance complete until an actual test run succeeds.
+
+## Current main closeout
+
+Current `main` HEAD before documentation closeout: `6bba725ff4e60ba5163da210ad49f6e8a200eec3`. Final test blob includes both AUD-404 inventory regression and AUD-405 stale-summary guard: `03a9fba19b7b65096e9d142106f6cc349568de29`. GitHub Actions remain runner allocation failures (zero steps); Vercel success is a status check only, not production deployment evidence. UA-077/078 remain pending.

@@ -20,7 +20,7 @@ This only updates disposable local verification logic. No SQL migration was chan
 ## Verification
 
 - GitHub tree inventory: 157 active files, numeric range 10–166, no gaps; migration 166 exists.
-- Source/test diff will be re-fetched after publication.
+- GitHub re-fetch confirmed the published diff. Current source/test blobs: `scripts/verify.sh` `ae05d6f5075091475ade646b9c3eaafd9ded899e`; `scripts/verify.ps1` `d4f447d08c92fcbc6585103867d691d7a749e881`; `backend/test/verify-script-migration-chain.test.js` `03a9fba19b7b65096e9d142106f6cc349568de29`.
 - Node tests and PostgreSQL replay were **not run** in this connector-only environment.
 - No production database was connected; the script remains explicitly limited to local disposable PostgreSQL.
 
@@ -32,3 +32,13 @@ Runtime remains NOT VERIFIED until a local `npm test` and `scripts/verify.ps1 -M
 
 Static review of commit `4ff3b3509d103ae27d945c1faf7bb2e289112428` caught a double-escaped JavaScript regex in the newly added inventory test. It would have matched a literal backslash sequence instead of migration prefixes. Corrected to `/^\d{3}_.+\.sql$/` in the follow-up commit. This correction was made before any claim of runtime PASS; Node/PostgreSQL tests remain NOT RUN.
 
+
+## Complete closeout receipt (current main reconciliation)
+
+- AUD-404 source: `4ff3b3509d103ae27d945c1faf7bb2e289112428`; test regex correction: `e02b16f3d1e0a2625878a172f49c9379295cb7b2`.
+- AUD-405 Windows diagnostic correction: script `d1cdf597e5568951eabbd57f3552e9b984cf29db`, regression `7a57d1aa16b9aea8971e1093675bc817b355b30a`, audit `567b852ede0141f003b6e1a4b70185b6bf9e0d71`.
+- Final current blobs: verify.sh `ae05d6f5075091475ade646b9c3eaafd9ded899e`; verify.ps1 `d4f447d08c92fcbc6585103867d691d7a749e881`; migration-chain test `03a9fba19b7b65096e9d142106f6cc349568de29`.
+- GitHub Actions runs `45031148970` backend/frontend jobs `137234810601`/`137234810203`, `45031148954` postgres job `137234810090`, and `45031140844` frontend/backend jobs `137234784041`/`137234784261`; all `runner_id=0`, `steps=[]`. Runtime not executed.
+- Vercel status `success` on documentation HEAD `6bba725ff4e60ba5163da210ad49f6e8a200eec3`; not evidence of production deployment.
+- PR #96 comment `7080314663` records that main fixed migration sequence and asks PR to reconcile; PR remains open/unmerged.
+- UA-077 / UA-078 are still owner-side local acceptance. No production DB or remote DB replay was run.
