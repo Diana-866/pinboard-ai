@@ -3872,3 +3872,23 @@ npm.cmd test
 - **Required corrections:** (1) recognize both custom-base and legacy Supabase image URLs during lifecycle deletion; (2) preserve S3 source Content-Type; (3) verify image bytes with checksum, not size alone, for resume and copy validation.
 - **Acceptance evidence:** regression tests for legacy/new URL deletion, S3 metadata preservation, and same-size/different-content objects; actual test run and migration dry-run against disposable credentials/environment. Do not use production storage for acceptance.
 - **Owner decision:** review findings must be resolved before merge consideration. No production cutover is implied.
+
+
+### AUD-407 — targeted regression command for malformed review-queue reads
+
+The fix is published on current `main`. Runtime was not executed by this session. After `git pull origin main`, from the repository root run:
+
+```powershell
+cd backend
+node --test test/fetch-all-pages.test.js test/review-queue-route-contract.test.js test/api-authenticated-reads.test.js test/test-inventory.test.js
+```
+
+Then run the full backend suite:
+
+```powershell
+npm.cmd test
+```
+
+**Acceptance:** all commands exit 0; in particular, malformed pins/schedules responses return 502 and the test harness records zero DELETE requests to `pin_review_queue`. Share only failing test names and sanitized error output. Do not use production credentials or production DB.
+
+**Status:** owner runtime acceptance pending (tracked with UA-076); no tests are claimed passed by static source review.
