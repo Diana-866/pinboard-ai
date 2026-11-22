@@ -4073,5 +4073,20 @@ npm.cmd test
   node --test test/admin-account-deletion-inventory.test.js test/test-inventory.test.js
   npm.cmd test
   ```
-- **Acceptance:** focused and full backend tests exit 0; both null-result scenarios fail closed; inventory is 1,455 declarations and account-deletion inventory test file has 10.
+- **Acceptance:** focused and full backend tests exit 0; both null-result scenarios fail closed; AUD-420 sentinel truncation and malformed-row cases pass; current main inventory is 1,458 declarations and account-deletion inventory test file has 12. Confirm the admin UI displays `requiring_attention_truncated` without implying the list is complete.
 - Report tested HEAD, exact commands, summary and exit codes. Use test harness only; do not connect to production or run deletion jobs.
+
+
+## UA-089 — Runtime acceptance for admin authorization database error mapping (AUD-421)
+
+- **Status:** [ ] Awaiting owner/local runtime evidence.
+- **Base:** `5f168f287cf49b3552b90794439292c7265ad38c`.
+- **Fix:** normal non-admin and missing-user results remain 403; DB outage, thrown lookup and malformed successful response return safe 503 instead of misleading 403. No role is inferred from request data.
+- **After syncing latest `main`, from repository root in PowerShell:**
+  ```powershell
+  cd backend
+  node --test test/admin-access.test.js test/test-inventory.test.js
+  npm.cmd test
+  ```
+- **Acceptance:** focused and full suite exit 0; missing user and known non-admin return 403; database error and malformed `data:null,error:null` return 503 with the fixed safe message; inventory is 1,458 declarations and `admin-access.test.js` has 4.
+- Report tested HEAD, exact commands, summary and exit codes. Use the local test harness only; no production database or deployment.
