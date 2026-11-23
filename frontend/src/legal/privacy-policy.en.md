@@ -59,7 +59,7 @@ We do not sell your data and do not share it for advertising.
 Only the following providers, in the scope necessary to operate the Service:
 
 - **GPTunnel (gptunnel.ru)** — AI provider: text prompts (niche, topics, titles) and image descriptions are sent for text and image generation. Country: Russia.
-- **Hosting and database** — storage of accounts, projects, and content. Currently Render (US) and Supabase (EU). We will update this section if the hosting or database providers or their processing locations change.
+- **Hosting and database** — storage of accounts, projects, and content. Data lives on a dedicated server in the Russian Federation (`[SERVER LOCATION]` — being confirmed); the database runs on that same server, and no separate cloud service receives your data. We will update this section if the server or its country changes.
 - **Pinterest** — publishing and reading data of your connected account only, within the permissions you granted during OAuth.
 - **Prodamus** — payment provider: payment processing; card data is handled by the provider and never reaches us.
 - **Email provider** — sending emails (registration confirmation, password reset, notifications).
@@ -70,12 +70,12 @@ Each provider processes data under its own privacy policy.
 
 - We request only: `user_accounts:read`, `boards:read`, `boards:write`, `pins:read`, `pins:write`.
 - You can revoke access at any time — in Pinterest settings ("Security and apps") or via the "Disconnect Pinterest" button in the Service.
-- After disconnection, OAuth tokens are deleted within 24 hours.
+- When you disconnect an account, its Pinterest OAuth tokens are erased immediately: the service deletes them at the moment of disconnection, not on a schedule.
 
 ## 6. Data Retention and Deletion
 
 - Data is stored while your account is active.
-- Upon account deletion, personal data and OAuth tokens are deleted within 30 days. Payment records are retained as required by accounting law.
+- When you delete your account, personal data and OAuth tokens are deleted as soon as your request is processed: the deletion queue is handled by a worker automatically. The one exception is database backups: copies are kept for 14 days, so data disappears from them no later than 14 days after the account is deleted. Payment records are retained as required by accounting law.
 - You can download the available account-data export yourself in **Settings → Data & Account**. If the export is unavailable or you need help, contact us using the address in Section 12.
 
 ## 7. Your Rights
@@ -101,7 +101,7 @@ The Service is intended for users aged 18 and older. We do not knowingly collect
 
 ## 10. International Data Transfers
 
-Some providers are located outside the Russian Federation. By using the Service you consent to such transfers in the scope necessary for its operation. For EEA users, the grounds are listed in Appendix A.
+The server, the database and the AI provider are located in the Russian Federation. Outside it operate only Pinterest (US) — when you publish a pin, its data is sent to Pinterest through the official API — and the payment provider's infrastructure to the extent needed to process a payment. By using the Service you consent to such transfers. For EEA users, the grounds are listed in Appendix A.
 
 ## 11. Changes to This Policy
 
