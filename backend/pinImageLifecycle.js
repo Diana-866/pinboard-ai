@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { readArrayQueryResult } = require("./fetchAllPages");
 
 const EXPECTED_PIN_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
@@ -136,11 +137,11 @@ async function uploadManagedPinImageObject({ supabase, bucket = "pin-images", ob
 }
 
 async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
-  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+  const inventoryResult = await supabase.rpc("list_stale_pin_image_uploads", {
     p_older_than_seconds: olderThanSeconds,
     p_limit: limit,
   });
-  if (inventoryError) throw inventoryError;
+  const staleUploads = readArrayQueryResult(inventoryResult);
 
   const result = { inspected: 0, quarantined: 0, skipped: 0, failed: 0, items: [] };
   for (const row of staleUploads || []) {
