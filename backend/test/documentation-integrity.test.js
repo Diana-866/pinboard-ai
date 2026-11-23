@@ -189,7 +189,13 @@ test("every change of this session has a row, and every row points at a reason",
       // Checked for every documentation commit, not only for the exempt ones: the exemption
       // (a commit cannot cite itself) must not become a way to land behaviour without a reason,
       // so a "docs" commit may only touch docs/.
-      const codeFiles = commitFiles(hash).filter((file) => !file.startsWith("docs/"));
+      // `*.md` вне `docs/` — это тоже документация, а не поведение: политика
+      // конфиденциальности и условия лежат в `frontend/src/legal/*.md` и правятся как текст,
+      // но собираются в бандл. Раньше правило считало их кодом и требовало исключения для
+      // честного документационного коммита.
+      const codeFiles = commitFiles(hash).filter(
+        (file) => !file.startsWith("docs/") && !file.endsWith(".md")
+      );
       if (codeFiles.length > 0) {
         assert.ok(
           CODE_IN_DOCS_COMMITS.has(hash),
