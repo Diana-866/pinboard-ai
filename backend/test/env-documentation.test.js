@@ -101,3 +101,33 @@ test("a newly introduced variable fails the check", () => {
   const wouldFail = [probe].filter((key) => !documented.has(key) && !RUNTIME_PROVIDED.has(key));
   assert.equal(wouldFail.length, 1);
 });
+
+test("the example values are recognisable as placeholders, not as configuration", () => {
+  // Иначе копия примера выглядит настроенной: сервис молчит про почту и ключ, а письма
+  // не уходят. Детектор заглушек (§155) обязан срабатывать на самом примере.
+  const { looksLikePlaceholder, unresolvedMailPlaceholders } = require("../mail");
+  const values = {};
+  for (const line of fs.readFileSync(ENV_EXAMPLE, "utf8").split(String.fromCharCode(10))) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (match) values[match[1]] = match[2].replace(/^"|"$/g, "");
+  }
+  const required = ["MAIL_SMTP_HOST", "MAIL_SMTP_USER", "MAIL_SMTP_PASS", "MAIL_FROM", "GPTUNNEL_API_KEY"];
+  const undocumented = required.filter((name) => !(name in values));
+  assert.deepEqual(undocumented, [], `the example must document: ${undocumented.join(", ")}`);
+  const notDetected = required.filter((name) => !looksLikePlaceholder(values[name]));
+  assert.deepEqual(notDetected, [], `example values that look like real configuration: ${notDetected.join(", ")}`);
+  // И полный набор заглушек обязан давать ровно четыре незаполненные почтовые переменные.
+  const saved = { ...process.env };
+  try {
+    process.env.MAIL_SMTP_HOST = values.MAIL_SMTP_HOST;
+    process.env.MAIL_SMTP_USER = values.MAIL_SMTP_USER;
+    process.env.MAIL_SMTP_PASS = values.MAIL_SMTP_PASS;
+    process.env.MAIL_FROM = values.MAIL_FROM;
+    assert.deepEqual(unresolvedMailPlaceholders().sort(), ["MAIL_FROM", "MAIL_SMTP_HOST", "MAIL_SMTP_PASS", "MAIL_SMTP_USER"]);
+  } finally {
+    for (const key of ["MAIL_SMTP_HOST", "MAIL_SMTP_USER", "MAIL_SMTP_PASS", "MAIL_FROM"]) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+});
