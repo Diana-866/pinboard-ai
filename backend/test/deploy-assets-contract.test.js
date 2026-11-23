@@ -132,3 +132,26 @@ test("the deployment example holds placeholders, never real secrets", () => {
   const domainLine = example.split(String.fromCharCode(10)).find((line) => line.startsWith("CADDY_DOMAIN=")) || "";
   assert.ok(domainLine.length > 0, "CADDY_DOMAIN must be documented");
 });
+
+test("the deployment parts agree on the API prefix", () => {
+  // Три файла должны говорить об одном и том же: браузер собирает адрес из VITE_API_URL,
+  // Caddy снимает префикс перед backend. Если префиксы разойдутся, сайт откроется, а каждый
+  // запрос к API вернёт 404 — и это выглядит как «сервер не отвечает».
+  const example = read("deploy/.env.example");
+  const caddy = read("deploy/Caddyfile");
+  const web = read("deploy/Dockerfile.web");
+  const compose = read("deploy/docker-compose.yml");
+
+  const apiLine = example.split(String.fromCharCode(10)).find((line) => line.startsWith("VITE_API_URL=")) || "";
+  assert.ok(apiLine.length > 0, "VITE_API_URL must be documented");
+  const apiValue = apiLine.slice("VITE_API_URL=".length).replace(/^"|"$/g, "");
+  assert.ok(apiValue.startsWith("/"), "the API address must stay same-origin, otherwise CORS is needed again");
+  const prefix = apiValue.replace(/\/+$/, "");
+
+  assert.ok(caddy.includes("handle " + prefix + "/*"), `Caddy must route ${prefix}/* to the backend`);
+  assert.ok(caddy.includes("uri strip_prefix " + prefix), `Caddy must strip ${prefix} before proxying`);
+  assert.match(caddy, /reverse_proxy backend:3000/);
+  assert.match(web, /ARG VITE_API_URL/);
+  assert.match(web, /ENV VITE_API_URL=\$VITE_API_URL/);
+  assert.match(compose, /VITE_API_URL:/);
+});
