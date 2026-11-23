@@ -1,6 +1,6 @@
 {
   "files": 187,
-  "total": 1530,
+  "total": 1533,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -86,7 +86,7 @@
     "mail-transport.test.js": 11,
     "migrations-runner-contract.test.js": 8,
     "missing-row-vs-error.test.js": 3,
-    "password-reset.test.js": 11,
+    "password-reset.test.js": 14,
     "payment-creation-idempotency.test.js": 1,
     "payment-creation-settlement.test.js": 11,
     "payment-failure-codes.test.js": 7,

@@ -10,7 +10,13 @@ const { logWarning, logError, logInfo } = require("./safeLogger");
 
 const crypto = require("crypto");
 const supabase = require("./supabase");
-const { httpError } = require("./validate");
+const { httpError, validationError } = require("./validate");
+
+// Машинный код к ошибке: без него клиент показывает русский текст в любой локали.
+function withCode(error, code) {
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
 const { getEmailCopy, normalizeLanguage } = require("./email-locales");
 const { transactionalMailConfigured, sendMail } = require("./mail");
 
@@ -122,7 +128,10 @@ async function resendVerification(rawEmail, userIdFromToken) {
 
     if (lookupError) {
       logError("email-verify.event_003");
-      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+      throw withCode(
+        httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже"),
+        "email_verification_unavailable"
+      );
     }
 
     if (user && user.email_verified === true) {
@@ -161,7 +170,10 @@ async function resendVerification(rawEmail, userIdFromToken) {
 
     if (lookupError) {
       logError("email-verify.event_002");
-      throw httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже");
+      throw withCode(
+      httpError(503, "Сервис подтверждения email временно недоступен — попробуйте позже"),
+      "email_verification_unavailable"
+    );
     }
 
     // Троттлинг работает и для анонимного режима: чаще раза в 5 минут письмо не уходит
@@ -182,7 +194,7 @@ async function resendVerification(rawEmail, userIdFromToken) {
 // токены для клиента неразличимы.
 async function applyVerification(rawToken) {
   if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
-    throw httpError(422, "Ссылка недействительна");
+    throw validationError("email_verification_link_invalid", "Ссылка недействительна");
   }
 
   // Atomic DB function locks the user and token, then updates both in one transaction.
@@ -191,10 +203,16 @@ async function applyVerification(rawToken) {
   });
   if (error) {
     logError("email-verify.event_001");
-    throw httpError(500, "Не удалось подтвердить email — попробуйте позже");
+    throw withCode(
+      httpError(500, "Не удалось подтвердить email — попробуйте позже"),
+      "email_verification_unavailable"
+    );
   }
   if (data !== true) {
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новое письмо");
+    throw validationError(
+      "email_verification_link_invalid",
+      "Ссылка недействительна или устарела — запросите новое письмо"
+    );
   }
   return { ok: true };
 }

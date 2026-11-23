@@ -29,6 +29,8 @@ const CODES = [
   'pin_image_missing',
   'board_selection_required',
   'image_upload_required',
+  'password_reset_link_invalid',
+  'email_verification_link_invalid',
 ];
 
 function withStoredLanguage<T>(language: string | null, run: () => T): T {
@@ -65,9 +67,10 @@ test('the messages differ from each other and are really translated', () => {
     const zh = withStoredLanguage('zh', () => getLocalizedApiError(code, 422))!;
     assert.doesNotMatch(latinResidue(zh), /[A-Za-z]{4,}/, `${code} zh must not be English`);
   }
-  // Every message must name the thing to fix, not just say "invalid".
+  // Every message must name the thing to fix, not just say "invalid". A broken link is a
+  // thing the customer can fix by requesting a new email, so `link` belongs in this list.
   for (const message of english) {
-    assert.match(message, /board|date|time|zone|URL|image|Pinterest|publication|year/i, message);
+    assert.match(message, /board|date|time|zone|URL|image|link|Pinterest|publication|year/i, message);
   }
 });
 

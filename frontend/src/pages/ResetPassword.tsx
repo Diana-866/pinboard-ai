@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { useI18n } from '../i18n/i18nContext';
 import { getAuthCopy } from '../i18n/authCopy';
+import { getLocalizedApiError } from '../i18n/appErrorCopy';
 
 export const ResetPassword: React.FC = () => {
   const [params] = useSearchParams();
@@ -43,7 +44,10 @@ export const ResetPassword: React.FC = () => {
       });
       setDone(true);
     } catch (err: any) {
-      setError(err.message || t.registerError);
+      // Код с сервера переводится на язык интерфейса: русский текст в испанской
+      // локали человек читал как «непонятный отказ».
+      const localized = getLocalizedApiError(err?.data?.code, err?.status);
+      setError(localized || err.message || t.registerError);
     } finally {
       setLoading(false);
     }

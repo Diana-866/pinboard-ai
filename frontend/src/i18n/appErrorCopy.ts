@@ -22,6 +22,10 @@ export type AppErrorMessageKey =
   | 'aiProviderNotConfigured'
   | 'loginLockoutMigrationMissing'
   | 'loginLockoutUnavailable'
+  | 'passwordResetLinkInvalid'
+  | 'passwordResetUnavailable'
+  | 'emailVerificationLinkInvalid'
+  | 'emailVerificationUnavailable'
   | 'emailRequeueMigrationMissing'
   | 'paymentProviderUnavailable'
   | 'paymentLinkNotSaved'
@@ -93,6 +97,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "Generation is not available right now because the AI service is not configured on the server. Nothing was charged for this attempt. We already know about it - please try again later.",
     loginLockoutMigrationMissing: "The login lockout is not available: migration 164 has not been applied in this environment. Until it is, nobody is locked out after repeated failed sign-ins.",
     loginLockoutUnavailable: "The login lockout service did not answer, so the lock state could not be read or cleared. Try again in a minute.",
+    passwordResetLinkInvalid: "This link is no longer valid. Request a new email and open the newest link — each link works once.",
+    passwordResetUnavailable: "The password could not be changed right now. Nothing was changed; try again in a minute.",
+    emailVerificationLinkInvalid: "This confirmation link is no longer valid. Request a new email and open the newest link — each link works once.",
+    emailVerificationUnavailable: "The email could not be confirmed right now. Nothing was changed; try again in a minute.",
     emailRequeueMigrationMissing: "Email requeue is not available: migration 165 has not been applied in this environment. Until it is, a dead transactional email cannot be put back in the queue.",
     paymentProviderUnavailable: "The payment service is not responding right now. Nothing has been charged - try again in a few minutes.",
     paymentLinkNotSaved: "Your invoice was created but we could not save its link. Do not start another payment - contact support and we will find your invoice by email.",
@@ -163,6 +171,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "Генерация сейчас недоступна: сервис генерации не настроен на сервере. За эту попытку кредиты не списываются. Мы уже знаем о проблеме — попробуйте позже.",
     loginLockoutMigrationMissing: "Замок входа недоступен: миграция 164 не применена в этом окружении. Пока её нет, блокировка после неудачных попыток входа не работает.",
     loginLockoutUnavailable: "Сервис замка входа не ответил, поэтому состояние блокировки не удалось ни прочитать, ни снять. Повторите через минуту.",
+    passwordResetLinkInvalid: "Ссылка больше не действует. Запросите новое письмо и откройте последнюю ссылку — каждая работает один раз.",
+    passwordResetUnavailable: "Пароль сейчас не удалось изменить. Ничего не изменено — повторите через минуту.",
+    emailVerificationLinkInvalid: "Ссылка подтверждения больше не действует. Запросите новое письмо и откройте последнюю ссылку — каждая работает один раз.",
+    emailVerificationUnavailable: "Подтвердить почту сейчас не удалось. Ничего не изменено — повторите через минуту.",
     emailRequeueMigrationMissing: "Переотправка писем недоступна: миграция 165 не применена в этом окружении. Пока её нет, потерянное письмо нельзя вернуть в очередь.",
     paymentProviderUnavailable: "Платёжный сервис сейчас не отвечает. Деньги не списаны — повторите попытку через несколько минут.",
     paymentLinkNotSaved: "Счёт создан, но ссылку на него сохранить не удалось. Не создавайте новый платёж — напишите в поддержку, мы найдём счёт по email.",
@@ -233,6 +245,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "La generación no está disponible ahora porque el servicio de IA no está configurado en el servidor. No se ha cobrado nada por este intento. Ya conocemos el problema: inténtalo más tarde.",
     loginLockoutMigrationMissing: "El bloqueo de acceso no está disponible: la migración 164 no se ha aplicado en este entorno. Mientras falte, nadie queda bloqueado tras varios intentos fallidos.",
     loginLockoutUnavailable: "El servicio de bloqueo de acceso no respondió, así que no se pudo leer ni borrar el estado del bloqueo. Inténtalo de nuevo en un minuto.",
+    passwordResetLinkInvalid: "Este enlace ya no es válido. Solicita un correo nuevo y abre el último enlace: cada enlace funciona una sola vez.",
+    passwordResetUnavailable: "Ahora mismo no se pudo cambiar la contraseña. No se cambió nada; inténtalo de nuevo en un minuto.",
+    emailVerificationLinkInvalid: "Este enlace de confirmación ya no es válido. Solicita un correo nuevo y abre el último enlace: cada enlace funciona una sola vez.",
+    emailVerificationUnavailable: "Ahora mismo no se pudo confirmar el correo. No se cambió nada; inténtalo de nuevo en un minuto.",
     emailRequeueMigrationMissing: "La reencolación de correos no está disponible: la migración 165 no se ha aplicado en este entorno. Mientras falte, un correo perdido no puede volver a la cola.",
     paymentProviderUnavailable: "El servicio de pago no responde en este momento. No se ha cobrado nada: inténtalo de nuevo en unos minutos.",
     paymentLinkNotSaved: "La factura se creó, pero no pudimos guardar su enlace. No inicies otro pago: escribe al soporte y la encontraremos por tu email.",
@@ -303,6 +319,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "A geração não está disponível agora porque o serviço de IA não está configurado no servidor. Nada foi cobrado por esta tentativa. Já conhecemos o problema - tente novamente mais tarde.",
     loginLockoutMigrationMissing: "O bloqueio de acesso não está disponível: a migração 164 não foi aplicada neste ambiente. Enquanto faltar, ninguém é bloqueado após tentativas falhadas.",
     loginLockoutUnavailable: "O serviço de bloqueio de acesso não respondeu, por isso não foi possível ler nem limpar o estado do bloqueio. Tente novamente num minuto.",
+    passwordResetLinkInvalid: "Este link não é mais válido. Peça um novo e-mail e abra o link mais recente — cada link funciona uma vez.",
+    passwordResetUnavailable: "Não foi possível alterar a senha agora. Nada foi alterado; tente novamente em um minuto.",
+    emailVerificationLinkInvalid: "Este link de confirmação não é mais válido. Peça um novo e-mail e abra o link mais recente — cada link funciona uma vez.",
+    emailVerificationUnavailable: "Não foi possível confirmar o e-mail agora. Nada foi alterado; tente novamente em um minuto.",
     emailRequeueMigrationMissing: "O reenfileiramento de e-mails não está disponível: a migração 165 não foi aplicada neste ambiente. Enquanto faltar, um e-mail perdido não pode voltar à fila.",
     paymentProviderUnavailable: "O serviço de pagamento não está respondendo agora. Nada foi cobrado — tente novamente em alguns minutos.",
     paymentLinkNotSaved: "A fatura foi criada, mas não conseguimos salvar o link dela. Não inicie outro pagamento — fale com o suporte e a encontraremos pelo seu email.",
@@ -373,6 +393,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "Die Generierung ist derzeit nicht verfügbar, weil der KI-Dienst auf dem Server nicht eingerichtet ist. Für diesen Versuch wurde nichts berechnet. Wir kennen das Problem bereits - bitte versuche es später erneut.",
     loginLockoutMigrationMissing: "Die Login-Sperre ist nicht verfügbar: Migration 164 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, wird nach fehlgeschlagenen Anmeldungen niemand gesperrt.",
     loginLockoutUnavailable: "Der Dienst der Login-Sperre antwortete nicht, daher konnte der Sperrzustand weder gelesen noch aufgehoben werden. Versuchen Sie es in einer Minute erneut.",
+    passwordResetLinkInvalid: "Dieser Link ist nicht mehr gültig. Fordern Sie eine neue E-Mail an und öffnen Sie den neuesten Link — jeder Link funktioniert einmal.",
+    passwordResetUnavailable: "Das Passwort konnte gerade nicht geändert werden. Es wurde nichts geändert; versuchen Sie es in einer Minute erneut.",
+    emailVerificationLinkInvalid: "Dieser Bestätigungslink ist nicht mehr gültig. Fordern Sie eine neue E-Mail an und öffnen Sie den neuesten Link — jeder Link funktioniert einmal.",
+    emailVerificationUnavailable: "Die E-Mail konnte gerade nicht bestätigt werden. Es wurde nichts geändert; versuchen Sie es in einer Minute erneut.",
     emailRequeueMigrationMissing: "Das erneute Einreihen von E-Mails ist nicht verfügbar: Migration 165 wurde in dieser Umgebung nicht eingespielt. Solange sie fehlt, kann eine verlorene E-Mail nicht zurück in die Warteschlange.",
     paymentProviderUnavailable: "Der Zahlungsdienst antwortet gerade nicht. Es wurde nichts belastet - versuche es in ein paar Minuten erneut.",
     paymentLinkNotSaved: "Die Rechnung wurde erstellt, aber wir konnten ihren Link nicht speichern. Starte keine zweite Zahlung - schreibe dem Support, wir finden sie über deine E-Mail.",
@@ -443,6 +467,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "La génération est indisponible pour le moment car le service d'IA n'est pas configuré sur le serveur. Rien n'a été facturé pour cette tentative. Nous connaissons déjà le problème - réessayez plus tard.",
     loginLockoutMigrationMissing: "Le verrouillage de connexion n’est pas disponible : la migration 164 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, personne n’est bloqué après plusieurs échecs.",
     loginLockoutUnavailable: "Le service de verrouillage de connexion n’a pas répondu : l’état du verrouillage n’a pu être ni lu ni levé. Réessayez dans une minute.",
+    passwordResetLinkInvalid: "Ce lien n’est plus valable. Demandez un nouvel e-mail et ouvrez le lien le plus récent — chaque lien ne fonctionne qu’une fois.",
+    passwordResetUnavailable: "Le mot de passe n’a pas pu être modifié pour le moment. Rien n’a été changé ; réessayez dans une minute.",
+    emailVerificationLinkInvalid: "Ce lien de confirmation n’est plus valable. Demandez un nouvel e-mail et ouvrez le lien le plus récent — chaque lien ne fonctionne qu’une fois.",
+    emailVerificationUnavailable: "L’e-mail n’a pas pu être confirmé pour le moment. Rien n’a été changé ; réessayez dans une minute.",
     emailRequeueMigrationMissing: "La remise en file des e-mails n’est pas disponible : la migration 165 n’a pas été appliquée dans cet environnement. Tant qu’elle manque, un e-mail perdu ne peut pas revenir dans la file.",
     paymentProviderUnavailable: "Le service de paiement ne répond pas pour le moment. Rien n'a été débité : réessayez dans quelques minutes.",
     paymentLinkNotSaved: "La facture a été créée, mais nous n'avons pas pu enregistrer son lien. Ne lancez pas un autre paiement : écrivez au support et nous la retrouverons grâce à votre email.",
@@ -513,6 +541,10 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     aiProviderNotConfigured: "目前无法生成内容：服务器上的 AI 服务尚未配置。本次尝试未扣除任何点数。我们已了解该问题，请稍后再试。",
     loginLockoutMigrationMissing: "登录锁定不可用：此环境尚未应用迁移 164。在迁移之前，多次登录失败不会被锁定。",
     loginLockoutUnavailable: "登录锁定服务没有响应，因此无法读取或解除锁定状态。请在一分钟后重试。",
+    passwordResetLinkInvalid: "此链接已失效。请重新发送邮件并打开最新的一封，每个链接只能使用一次。",
+    passwordResetUnavailable: "目前无法修改密码，也没有做出任何改动。请一分钟后再试。",
+    emailVerificationLinkInvalid: "此确认链接已失效。请重新发送邮件并打开最新的一封，每个链接只能使用一次。",
+    emailVerificationUnavailable: "目前无法确认邮箱，也没有做出任何改动。请一分钟后再试。",
     emailRequeueMigrationMissing: "邮件重新入队不可用：此环境尚未应用迁移 165。在迁移之前，丢失的邮件无法回到队列。",
     paymentProviderUnavailable: "支付服务暂时无法响应，尚未扣款。请几分钟后重试。",
     paymentLinkNotSaved: "账单已创建，但我们无法保存其链接。请不要再次发起支付，请联系客服，我们会通过邮箱找到这笔账单。",
@@ -614,6 +646,8 @@ const VALIDATION_CODES: Record<string, AppErrorMessageKey> = {
   board_selection_required: 'boardSelectionRequired',
   image_upload_required: 'imageUploadRequired',
   website_unreachable: 'websiteUnreachable',
+  password_reset_link_invalid: 'passwordResetLinkInvalid',
+  email_verification_link_invalid: 'emailVerificationLinkInvalid',
 };
 
 const CONFLICT_CODES: Record<string, AppErrorMessageKey> = {
@@ -678,6 +712,12 @@ const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {
 
 export function getLocalizedApiError(code: unknown, status: unknown): string | null {
   if (typeof code !== 'string') return null;
+  if (Number(status) === 422 && code === 'password_reset_link_invalid') {
+    return getAppErrorMessage('passwordResetLinkInvalid');
+  }
+  if (Number(status) === 422 && code === 'email_verification_link_invalid') {
+    return getAppErrorMessage('emailVerificationLinkInvalid');
+  }
   if (code === 'insufficient_credits' && Number(status) === 402) {
     return getAppErrorMessage('insufficientCredits');
   }
@@ -685,7 +725,9 @@ export function getLocalizedApiError(code: unknown, status: unknown): string | n
   // 500, 502 - so this one is not gated by the status class, only by being a failure.
   // Operator refusals that carry an instruction, not just "try later" (section 120).
   if ([500, 502, 503].includes(Number(status))) {
-    if (code === 'login_lockout_migration_missing') return getAppErrorMessage('loginLockoutMigrationMissing');
+    if (code === 'password_reset_unavailable') return getAppErrorMessage('passwordResetUnavailable');
+  if (code === 'email_verification_unavailable') return getAppErrorMessage('emailVerificationUnavailable');
+  if (code === 'login_lockout_migration_missing') return getAppErrorMessage('loginLockoutMigrationMissing');
     if (code === 'login_lockout_unavailable') return getAppErrorMessage('loginLockoutUnavailable');
     if (code === 'email_requeue_migration_missing') return getAppErrorMessage('emailRequeueMigrationMissing');
   }

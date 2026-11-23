@@ -5,7 +5,13 @@ const { logError, logInfo, logWarning } = require("./safeLogger");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const supabase = require("./supabase");
-const { httpError } = require("./validate");
+const { httpError, validationError } = require("./validate");
+
+// Машинный код к ошибке: без него клиент показывает русский текст в любой локали.
+function withCode(error, code) {
+  error.details = { ...(error.details || {}), code };
+  return error;
+}
 const { getEmailCopy } = require("./email-locales");
 const { transactionalMailConfigured, sendMail } = require("./mail");
 
@@ -39,7 +45,10 @@ async function requestReset(rawEmail, _frontendUrl, requestedLanguage) {
 
   if (lookupError) {
     logError("password-reset.event_006");
-    throw httpError(503, "Сервис восстановления пароля временно недоступен — попробуйте позже");
+    throw withCode(
+      httpError(503, "Сервис восстановления пароля временно недоступен — попробуйте позже"),
+      "password_reset_unavailable"
+    );
   }
 
   if (user && transactionalMailConfigured()) {
@@ -88,7 +97,7 @@ async function applyReset(rawToken, rawPassword) {
   const { validatePassword } = require("./validate");
   const password = validatePassword(rawPassword);
   if (!rawToken || typeof rawToken !== "string" || rawToken.length > 512) {
-    throw httpError(422, "Ссылка недействительна");
+    throw validationError("password_reset_link_invalid", "Ссылка недействительна");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -99,10 +108,16 @@ async function applyReset(rawToken, rawPassword) {
 
   if (error) {
     logError("password-reset.event_001");
-    throw httpError(500, "Не удалось обновить пароль — попробуйте позже");
+    throw withCode(
+      httpError(500, "Не удалось обновить пароль — попробуйте позже"),
+      "password_reset_unavailable"
+    );
   }
   if (data !== true) {
-    throw httpError(422, "Ссылка недействительна или устарела — запросите новую");
+    throw validationError(
+      "password_reset_link_invalid",
+      "Ссылка недействительна или устарела — запросите новую"
+    );
   }
 
   return { ok: true, message: "Пароль изменён. Теперь войдите с новым паролем." };

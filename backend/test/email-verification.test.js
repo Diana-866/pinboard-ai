@@ -242,7 +242,13 @@ test("verifying consumes only a hash and reports every bad token identically", a
     state.rpcResults.consume_email_verification_token = scripted;
     await assert.rejects(
       () => emailVerify.applyVerification("stale"),
-      (error) => error.httpStatus === 422 && /недействительна|устарела/i.test(error.message)
+      (error) => {
+        assert.equal(error.httpStatus, 422);
+        assert.match(error.message, /недействительна|устарела/i);
+        // Машинный код: без него клиент в другой локали показывает русский текст.
+        assert.equal(error.details && error.details.code, "email_verification_link_invalid");
+        return true;
+      }
     );
   }
 });
@@ -253,7 +259,12 @@ test("a database failure while verifying is reported as a server error, not a ba
 
   await assert.rejects(
     () => emailVerify.applyVerification("some-token"),
-    (error) => error.httpStatus === 500
+    (error) => {
+      assert.equal(error.httpStatus, 500);
+      // Сбой базы — это «повторите позже», а не «ссылка недействительна».
+      assert.equal(error.details && error.details.code, "email_verification_unavailable");
+      return true;
+    }
   );
 });
 

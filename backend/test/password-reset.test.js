@@ -252,3 +252,42 @@ test("a weak password is refused before the token is consumed", async () => {
   );
   assert.equal(state.rpcCalls.length, 0, "a weak password must not burn the link");
 });
+
+test("an unusable reset link carries a machine code the client can translate", async () => {
+  // Без кода клиент показывает русский текст в любой локали: человек в испанском интерфейсе
+  // читает «Ссылка недействительна» и не знает, запрашивать новое письмо или это сбой.
+  state.rpcResults.consume_password_reset_token = { data: false, error: null };
+  await assert.rejects(
+    () => applyReset("x".repeat(32), "correct-horse-9"),
+    (error) => {
+      assert.equal(error.httpStatus, 422);
+      assert.equal(error.details && error.details.code, "password_reset_link_invalid");
+      return true;
+    }
+  );
+});
+
+test("a malformed token carries the same code as an expired one", async () => {
+  await assert.rejects(
+    () => applyReset("", "correct-horse-9"),
+    (error) => {
+      assert.equal(error.httpStatus, 422);
+      assert.equal(error.details && error.details.code, "password_reset_link_invalid");
+      return true;
+    }
+  );
+});
+
+test("a database failure while resetting is an unavailability code, not an invalid link", async () => {
+  // «Ссылка недействительна» на сбой базы отправляло человека запрашивать новое письмо
+  // вместо того, чтобы просто повторить попытку.
+  state.rpcResults.consume_password_reset_token = { data: null, error: { message: "down" } };
+  await assert.rejects(
+    () => applyReset("x".repeat(32), "correct-horse-9"),
+    (error) => {
+      assert.equal(error.httpStatus, 500);
+      assert.equal(error.details && error.details.code, "password_reset_unavailable");
+      return true;
+    }
+  );
+});
