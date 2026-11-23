@@ -113,3 +113,22 @@ test("the local migration verification drives a throwaway cluster only", () => {
   assert.doesNotMatch(script, /source\s+\S*env/, "the verification must not source an env file");
   assert.doesNotMatch(script, /onrender\.com|supabase\.co/, "no remote database may appear here");
 });
+test("every variable the compose file substitutes is documented", () => {
+  const compose = read("deploy/docker-compose.yml");
+  const example = read("deploy/.env.example");
+  // `${VAR...}` в compose — единственный источник значений при запуске: недокументированная
+  // переменная означает, что при развёртывании её просто никто не заполнит.
+  const used = [...new Set([...compose.matchAll(/[$][{]([A-Z][A-Z0-9_]*)/g)].map((match) => match[1]))];
+  assert.ok(used.length >= 3, `expected the compose substitutions, found ${used.length}`);
+  const missing = used.filter((name) => !new RegExp("^" + name + "=", "m").test(example));
+  assert.deepEqual(missing, [], `variables used by compose but not documented in deploy/.env.example: ${missing.join(", ")}`);
+});
+
+test("the deployment example holds placeholders, never real secrets", () => {
+  const example = read("deploy/.env.example");
+  assert.doesNotMatch(example, /eyJ[A-Za-z0-9_-]{20,}/, "a JWT-looking value must not be committed");
+  assert.doesNotMatch(example, /(sk|pk)_(live|test)_[A-Za-z0-9]{10,}/, "a provider key must not be committed");
+  assert.doesNotMatch(example, /postgres(ql)?:..[^ ]*:[^ @]+@/, "a database url with a password must not be committed");
+  const domainLine = example.split(String.fromCharCode(10)).find((line) => line.startsWith("CADDY_DOMAIN=")) || "";
+  assert.ok(domainLine.length > 0, "CADDY_DOMAIN must be documented");
+});

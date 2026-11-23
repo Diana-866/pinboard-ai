@@ -4155,3 +4155,19 @@ npm.cmd test
 - **Status:** [ ] Awaiting owner (later).
 - **Что понадобится:** доступ в панель Beget (DNS и почта), ключ AI-провайдера, тестовые доступы Prodamus, приложение Pinterest в режиме Trial.
 - **Важно:** значения присылать не в чат, а вписывать прямо в `.env` на сервере — ассистент их не читает и не коммитит.
+
+### UA-095 — Развернуть стек на сервере (дни 3–4)
+
+- **Status:** [ ] Awaiting owner. Делать после UA-092.
+- **Что нажать/выполнить на сервере** (после `ssh` из UA-092):
+  1. `sudo apt update && sudo apt install -y docker.io docker-compose-plugin git`
+  2. `git clone https://github.com/Diana-866/pinboard-ai.git && cd pinboard-ai`
+  3. `cp deploy/.env.example deploy/.env` — затем впишите значения прямо на сервере (редактор `nano deploy/.env`). В чат их не присылайте.
+  4. `docker compose -f deploy/docker-compose.yml build` — первая сборка занимает несколько минут.
+  5. Поднимите Supabase (по официальному self-hosted compose) и впишите его адрес и ключ в `deploy/.env`.
+  6. Примените миграции: `cd backend && DATABASE_URL='postgres://...' node ../deploy/apply-migrations.cjs` (в журнале должно быть `165 applied`), затем повторный запуск для проверки — `0 applied`.
+  7. `cd .. && docker compose -f deploy/docker-compose.yml up -d`
+  8. Проверьте: `curl -sS -o /dev/null -w '%{http_code}
+' https://<домен>/health` → `200`; `bash deploy/healthcheck.sh --url https://<домен>/health` → `OK`.
+- **Что прислать в ответ:** вывод шагов 6 и 8 (числа, коды) и первые 20 строк `docker compose logs backend`.
+- **Зачем:** без этого не начать дни 5–9 (ручной прогон сценариев). Ассистент к серверу не подключается.
