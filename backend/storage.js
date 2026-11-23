@@ -5,6 +5,7 @@ const http = require("node:http");
 const https = require("node:https");
 const { httpError } = require("./validate");
 const { MAX_IMAGE_BYTES, validateImageBuffer } = require("./imageValidation");
+const { compressPinImage } = require("./imageCompression");
 const { assertPublicUrl, createPinnedLookup } = require("./publicUrl");
 const { extractManagedPinImagePath, buildPinImageObjectPath, uploadManagedPinImageObject, deleteManagedPinImageObject, findCompletedManagedPinImageUpload, validatePinImageBucketConfiguration, EXPECTED_PIN_IMAGE_MIMES } = require("./pinImageLifecycle");
 
@@ -48,6 +49,14 @@ async function uploadPinImage(file, options = {}) {
     imageType = validateImageBuffer(file && file.buffer, file && file.mimetype);
   } catch (e) {
     throw httpError(422, e.message);
+  }
+
+  // Сжатие до сохранения: провайдер отдаёт файлы по 2–5 МБ, а в хранилище должен уходить
+  // результат. Неудача сжатия не ломает загрузку — уходит исходник (см. imageCompression.js).
+  const compression = await compressPinImage(file.buffer);
+  if (compression.compressed && compression.buffer !== file.buffer) {
+    file = { buffer: compression.buffer, mimetype: compression.mimetype };
+    imageType = validateImageBuffer(file.buffer, file.mimetype);
   }
   await ensureBucket();
   const path = buildPinImageObjectPath(imageType.ext, options.idempotencyKey || null);

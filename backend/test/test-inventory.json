@@ -1,6 +1,6 @@
 {
-  "files": 187,
-  "total": 1533,
+  "files": 188,
+  "total": 1541,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -72,6 +72,7 @@
     "healthcheck-script.test.js": 7,
     "http-contract.test.js": 9,
     "http-error-response.test.js": 9,
+    "image-compression.test.js": 8,
     "image-upload-errors.test.js": 5,
     "image-upload-validation.test.js": 3,
     "image-validation.test.js": 6,
