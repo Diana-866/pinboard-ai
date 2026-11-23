@@ -177,11 +177,11 @@ async function quarantineStalePinImageUploads({ supabase, olderThanSeconds = 900
 }
 
 async function reconcileStalePinImageUploads({ supabase, olderThanSeconds = 900, limit = 50 }) {
-  const { data: staleUploads, error: inventoryError } = await supabase.rpc("list_stale_pin_image_uploads", {
+  const inventoryResult = await supabase.rpc("list_stale_pin_image_uploads", {
     p_older_than_seconds: olderThanSeconds,
     p_limit: limit,
   });
-  if (inventoryError) throw inventoryError;
+  const staleUploads = readArrayQueryResult(inventoryResult);
 
   // This endpoint is deliberately observational. Even if the object is
   // visible, Storage listing cannot prove that an older in-flight upsert has
