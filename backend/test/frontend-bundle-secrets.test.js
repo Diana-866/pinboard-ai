@@ -116,3 +116,27 @@ test("a built bundle carries no server secrets", (t) => {
   walk(DIST);
   assert.deepEqual(hits, [], `secrets inside the built bundle: ${hits.join(", ")}`);
 });
+
+test("a built bundle does not fall back to the previous backend host", (t) => {
+  // Собранный фронтенд без VITE_API_URL уходит на старый Render-адрес. После переезда это
+  // значит «сайт работает, а данные идут в выведенный из эксплуатации сервис». Проверка
+  // ловит именно это: в готовом бандле адреса прошлого хостинга быть не должно.
+  if (!fs.existsSync(DIST)) {
+    t.skip("frontend/dist is absent; run `npm run build` in frontend/ to check a real bundle");
+    return;
+  }
+  const retired = /onrender\.com|herokuapp\.com/;
+  const hits = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.(js|css|html|map)$/.test(entry.name)) {
+        if (retired.test(fs.readFileSync(full, "utf8"))) hits.push(path.relative(DIST, full));
+      }
+    }
+  };
+  walk(DIST);
+  assert.deepEqual(hits, [], `the bundle still points at the previous host: ${hits.join(", ")}`);
+});

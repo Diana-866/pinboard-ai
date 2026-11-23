@@ -155,3 +155,20 @@ test("the deployment parts agree on the API prefix", () => {
   assert.match(web, /ENV VITE_API_URL=\$VITE_API_URL/);
   assert.match(compose, /VITE_API_URL:/);
 });
+
+test("the web image refuses to build without an API address", () => {
+  // Иначе неудачная сборка выкладывает бандл, который молча обращается к выключенному
+  // хостингу: сайт открывается, данные не идут, и причина не видна никому.
+  const web = read("deploy/Dockerfile.web");
+  // `&&` вместо `||` пропускал бы пустое значение: проверка обязана валить сборку.
+  const guardLine = web.split(String.fromCharCode(10)).map((line) => line.trim())
+    .find((line) => line.startsWith('RUN test -n "$VITE_API_URL"')) || "";
+  assert.ok(guardLine.startsWith('RUN test -n "$VITE_API_URL" ||'), "an empty VITE_API_URL must fail the build");
+  assert.match(guardLine, /exit 1/, "the empty check must end the build");
+  // Именно эта команда обязана быть проверкой: `RUN if false && grep ...` содержит тот же
+  // текст, но ничего не проверяет, поэтому проверяется сама форма строки. Отрицание
+  // `!` и есть провал сборки: найденный старый хост делает RUN неуспешным.
+  const hostLine = web.split(String.fromCharCode(10)).find((line) => line.includes("onrender.com"));
+  assert.ok(hostLine, "the built bundle must be checked for the previous host");
+  assert.equal(hostLine.trim(), 'RUN ! grep -rIl "onrender.com" /app/dist', "the host check must run unconditionally and fail the build");
+});

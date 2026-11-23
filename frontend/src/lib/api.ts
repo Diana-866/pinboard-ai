@@ -12,7 +12,27 @@ import {
 } from "./apiResilience";
 
 const configuredApiUrl = (import.meta as any).env?.VITE_API_URL;
-export const API_URL = configuredApiUrl || "https://pinboard-ai-backend.onrender.com";
+
+/**
+ * Адрес API приводится к виду без завершающих слэшей.
+ *
+ * Пути запросов начинаются со слэша (`/login`), поэтому значение `/api/` давало `/api//login`:
+ * Caddy снимает `/api`, backend получает `//login` и отвечает 404. Достаточно было скопировать
+ * адрес из браузера вместе с завершающим слэшем, чтобы все запросы перестали находить маршрут.
+ */
+export function normalizeApiBase(value: unknown, fallback: string): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return fallback;
+  const trimmed = raw.replace(/\/+$/, "");
+  return trimmed || fallback;
+}
+
+// Адрес по умолчанию нужен только сборке без переменной. Он записан именно так, чтобы
+// присутствие VITE_API_URL убирало его из бандла: иначе в готовый фронтенд попадал бы
+// адрес прошлого хостинга и «работал» вместо выключенного сервиса.
+export const API_URL = configuredApiUrl
+  ? normalizeApiBase(configuredApiUrl, configuredApiUrl)
+  : "https://pinboard-ai-backend.onrender.com";
 
 // Раздел 157. Без этой строки отсутствие VITE_API_URL не видно никому: браузер молча уходит на
 // чужой (уже развёрнутый) сервер, а клиент получает «сервер не отвечает». Владелец потратил на этот
