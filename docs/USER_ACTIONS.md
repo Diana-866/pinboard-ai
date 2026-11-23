@@ -4160,7 +4160,7 @@ npm.cmd test
 
 - **Status:** [ ] Awaiting owner. Делать после UA-092.
 - **Что нажать/выполнить на сервере** (после `ssh` из UA-092):
-  1. `sudo apt update && sudo apt install -y docker.io docker-compose-plugin git`
+  1. Установка Docker: сначала официальный репозиторий Docker (`docker-ce`, `docker-compose-plugin`), при недоступности — пакеты Ubuntu 24.04 `docker.io` + `docker-compose-v2`. Пакета `docker-compose-plugin` в стандартных репозиториях Ubuntu 24.04 нет, поэтому прежняя команда падала. Точные команды и проверка (`docker --version`, `docker compose version`) — в `docs/OWNER_STEPS.md`, раздел 2.
   2. `git clone https://github.com/Diana-866/pinboard-ai.git && cd pinboard-ai`
   3. `cp deploy/.env.example deploy/.env` — затем впишите значения прямо на сервере (редактор `nano deploy/.env`). В чат их не присылайте.
   4. `docker compose -f deploy/docker-compose.yml build` — первая сборка занимает несколько минут.
