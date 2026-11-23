@@ -108,6 +108,17 @@ function clientSecret() {
 function redirectUri() {
   return String(process.env.PINTEREST_REDIRECT_URI || "").trim();
 }
+/**
+ * The browser-binding form POST must land on the same base path as the OAuth callback.
+ * An absolute URL path replaces the base path, so `new URL("/integrations/pinterest/start", base)`
+ * drops a deployment prefix such as /api and the request never reaches the backend.
+ */
+function resolveStartUrl(callbackUrl) {
+  const trimmed = String(callbackUrl || "").trim().replace(/\/+$/, "");
+  const cut = trimmed.lastIndexOf("/");
+  return cut === -1 ? trimmed : trimmed.slice(0, cut) + "/start";
+}
+
 function isConfigured() {
   return !!(clientId() && clientSecret() && redirectUri() && hasEncryptionKey());
 }
@@ -1019,7 +1030,7 @@ function registerRoutes(app, deps) {
       // The browser submits the proof to a top-level backend navigation. This
       // makes the cookie first-party even when the SPA and API are on different
       // registrable domains (where third-party Set-Cookie may be blocked).
-      const startUrl = new URL("/integrations/pinterest/start", redirectUri()).toString();
+      const startUrl = resolveStartUrl(redirectUri());
       res.json({
         start_url: startUrl,
         state,
