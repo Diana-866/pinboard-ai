@@ -25,7 +25,7 @@ import { useI18n } from '../../i18n/i18nContext';
 import { useAuth } from '../../context/AuthContext';
 import { PinPosyLogo } from '../common/PinPosyLogo';
 import { validateAvatarFile } from '../../utils/avatarUpload';
-import { PinterestAccount } from '../../data/mockData';
+import { PinterestAccount } from '../../data/types';
 
 interface SidebarProps {
   activeTab: string;

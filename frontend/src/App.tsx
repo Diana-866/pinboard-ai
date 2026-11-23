@@ -38,7 +38,7 @@ import type {
   BoardItem,
   ScheduledPinItem,
   PinterestAccount,
-} from './data/mockData';
+} from './data/types';
 import { mapPersistedBoards } from './utils/persistedBoards';
 import { getOrCreateProject } from './utils/projectProvisioning';
 import { validatePersistedScheduleRows } from './utils/persistedSchedule';

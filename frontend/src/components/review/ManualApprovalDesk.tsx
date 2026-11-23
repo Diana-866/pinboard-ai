@@ -21,7 +21,7 @@ import {
   CornerDownRight,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem } from '../../data/types';
 import { apiRequest, uploadPinImage } from '../../lib/api';
 import { PublishPinButton } from '../pins/PublishPinButton';
 import { applyCurrentReviewEdits } from '../../utils/reviewApproval';

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { AI_CONTENT_LANGUAGES, useI18n } from '../../i18n/i18nContext';
 import { useNotifications } from '../../context/NotificationContext';
-import type { BoardItem, ScheduledPinItem } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem } from '../../data/types';
 import { apiRequest } from '../../lib/api';
 import { GENERATION_REQUEST_TIMEOUT_MS } from '../../lib/apiResilience';
 import { pickRecommendedBoard } from '../../lib/boardRecommendation';

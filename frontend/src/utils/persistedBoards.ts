@@ -1,4 +1,4 @@
-import { BoardItem } from '../data/mockData';
+import { BoardItem } from '../data/types';
 
 const DEFAULT_BOARD_COVER = '/src/assets/images/pin_home_decor_1790670043705.jpg';
 const LEGACY_BOARD_CATEGORIES = new Set([

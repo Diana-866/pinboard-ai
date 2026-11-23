@@ -19,7 +19,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
-import type { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/mockData';
+import type { BoardItem, ScheduledPinItem, PinterestAccount } from '../../data/types';
 import { apiRequest } from '../../lib/api';
 import { getScheduleRetryReasonMessage } from '../../utils/scheduleRetryReason';
 import { getExplicitGenerationTopic } from '../../utils/generationTopic';
