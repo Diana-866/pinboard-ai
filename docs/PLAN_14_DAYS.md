@@ -170,6 +170,8 @@ worker: удаление    →  Supabase
 - Дефект, который сработал бы только на сервере: кнопка «Подключить Pinterest» строит `start_url` как `new URL("/integrations/pinterest/start", redirectUri())`, а абсолютный путь в URL **заменяет** путь базы. При `PINTEREST_REDIRECT_URI=https://<домен>/api/integrations/pinterest/callback` браузер уходил бы на `/integrations/pinterest/start` — вне `/api/*`, где Caddy отдаёт SPA, а не backend. Локально не виден, потому что там префикса нет. Теперь адрес выводится заменой последнего сегмента адреса возврата (`resolveStartUrl`), лишняя ветка удалена. Регрессия: `backend/test/pinterest-oauth-start-url.test.js` (4 проверки, реальный роутер, четыре формы адреса). Мутации падают: вернуть абсолютный путь, не снимать завершающий слэш, приклеить `/start` к полному адресу. `pinterest-routes-behaviour` 30/30 с `pinterest-oauth-state`.
 - Правильный `PINTEREST_REDIRECT_URI` для нового сервера: `https://<домен>/api/integrations/pinterest/callback` (тот же адрес регистрируется в приложении Pinterest).
 
+- `4b9715fd` — `resolveStartUrl` (префикс API сохраняется) и `pinterest-oauth-start-url.test.js`; `aa2480f2`/`0bc78a2b` — baseline инвентаря и запись о заказанном сервере.
+
 ## Текущий статус
 
 - Файлы развёртывания созданы (`deploy/`), но **ни один образ не собирался**: Docker на машине разработки отсутствует. Статус `[~]` — сделано, не проверено.
