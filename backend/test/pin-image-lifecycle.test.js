@@ -147,6 +147,7 @@ function makeStorageClient(options = {}) {
           error: options.quarantinedInventoryError || null };
       }
       if (name === "list_stale_pin_image_uploads") {
+        if (options.staleUploadResult !== undefined) return options.staleUploadResult;
         return { data: options.staleUploads === undefined ? [] : options.staleUploads,
           error: options.inventoryError || null };
       }
@@ -461,6 +462,22 @@ test("upload finalization retries a transient database response using the same f
   assert.equal(finalizations.length, 2);
   assert.equal(finalizations[0].args.p_upload_token, "upload-123");
   assert.deepEqual(finalizations[1].args, finalizations[0].args);
+});
+
+test("stale upload quarantine rejects malformed inventory before any quarantine RPC", async () => {
+  const supabase = makeStorageClient({ staleUploadResult: { data: null, error: null } });
+  await assert.rejects(quarantineStalePinImageUploads({ supabase }), { httpStatus: 502 });
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_stale_pin_image_uploads",
+  ]);
+});
+
+test("stale upload reconciliation rejects malformed inventory before Storage inspection", async () => {
+  const supabase = makeStorageClient({ staleUploadResult: { data: {}, error: null } });
+  await assert.rejects(reconcileStalePinImageUploads({ supabase }), { httpStatus: 502 });
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_stale_pin_image_uploads",
+  ]);
 });
 
 test("stale upload quarantine retires exact paths with their current fencing tokens", async () => {
