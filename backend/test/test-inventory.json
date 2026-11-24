@@ -1,6 +1,6 @@
 {
-  "files": 188,
-  "total": 1541,
+  "files": 190,
+  "total": 1557,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -45,6 +45,7 @@
     "credits-purchase.test.js": 13,
     "credits-webhook.test.js": 19,
     "credits.test.js": 5,
+    "daily-recommendations.test.js": 9,
     "data-access-boundary-contract.test.js": 5,
     "db-errors.test.js": 4,
     "db-migration-chain.test.js": 2,
@@ -127,6 +128,7 @@
     "pinterest-security-contract.test.js": 5,
     "pinterest-server-error-codes.test.js": 3,
     "pinterest-token-crypto.test.js": 7,
+    "plan-schedule-limits.test.js": 7,
     "postgres-concurrency-safety-contract.test.js": 4,
     "postgres-integration-runner-contract.test.js": 32,
     "prodamus-ambiguous-checkout.test.js": 7,

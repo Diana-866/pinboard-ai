@@ -2799,6 +2799,49 @@ app.post("/schedule/:id/cancel", requireAuth, pinterestScheduleLimiter, async (r
 
 // Публикационная аналитика по собственным данным сервиса. Метрики Pinterest
 // (impressions/saves/clicks) намеренно не возвращаются: они не собираются.
+// Ежедневные рекомендации: 5–7 пунктов, одна текстовая модель на пользователя в день.
+// Выключено по умолчанию (RECOMMENDATIONS_ENABLED != "true" → 404). Вход — только
+// сохранённые доски, пины и снимки трендов; выдуманные числа и «всплески запроса» запрещены.
+app.get("/recommendations/daily", requireAuth, aiLimiter, async (req, res) => {
+  try {
+    const recommendations = require("./recommendations");
+    if (!recommendations.recommendationsEnabled()) {
+      return res.status(404).json({ ok: false, error: "Рекомендации пока не включены" });
+    }
+    const language = validateEnum(
+      req.query && req.query.language,
+      ["en", "ru", "es", "pt", "de", "fr", "zh"],
+      "ru",
+      "Язык"
+    );
+    // boards и pins не имеют собственного user_id — владелец определяется через projects.
+    const { data: boards, error: boardsError } = await supabase
+      .from("boards")
+      .select("title")
+      .eq("projects.user_id", String(req.userId))
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (boardsError) throw boardsError;
+    const { data: pins, error: pinsError } = await supabase
+      .from("pins")
+      .select("title, status")
+      .eq("boards.projects.user_id", String(req.userId))
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (pinsError) throw pinsError;
+    const result = await recommendations.getDailyRecommendations({
+      supabaseClient: supabase,
+      userId: req.userId,
+      boards: boards || [],
+      pins: pins || [],
+      language,
+    });
+    res.json(result);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 app.get("/analytics/summary", requireAuth, async (req, res) => {
   try {
     const { getPublicationSummaryOrUnavailable } = require("./analytics");
