@@ -31,6 +31,7 @@ export type AppErrorMessageKey =
   | 'paymentLinkNotSaved'
   | 'paymentOrderPreparationFailed'
   | 'tariffRequired'
+  | 'scheduleLimitReached'
   | 'tariffInsufficient'
   | 'pinterestUnavailable'
   | 'pinterestRateLimited'
@@ -107,6 +108,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "We could not prepare your order safely, and nothing was sent to the payment provider. Try again in a few minutes.",
     tariffRequired: "Your plan is not active right now. Choose a plan to create pins again.",
     tariffInsufficient: "This section is not included in your current plan. Upgrade to continue.",
+    scheduleLimitReached: "Your plan's scheduled-pin limit is full. Unschedule or cancel pins to free slots, or upgrade your plan.",
     pinterestUnavailable: "Pinterest is temporarily unavailable. Nothing was lost — try this again in a minute.",
     pinterestRateLimited: "Pinterest is limiting how often this can be done. Wait a moment and try again.",
     pinterestNotConnected: "Connect your Pinterest account first, then schedule the publication.",
@@ -181,6 +183,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "Не удалось безопасно подготовить заказ, провайдеру ничего не отправлялось. Повторите попытку через несколько минут.",
     tariffRequired: "Подписка не активна. Выберите тариф, чтобы снова создавать пины.",
     tariffInsufficient: "Этот раздел не входит в ваш тариф. Перейдите на другой, чтобы продолжить.",
+    scheduleLimitReached: "Лимит запланированных публикаций вашего тарифа заполнен. Снимите или отмените часть пинов в календаре либо перейдите на тариф выше.",
     pinterestUnavailable: "Pinterest временно недоступен. Ничего не потеряно — повторите через минуту.",
     pinterestRateLimited: "Pinterest ограничил частоту действий. Подождите немного и повторите.",
     pinterestNotConnected: "Сначала подключите Pinterest-аккаунт, затем запланируйте публикацию.",
@@ -255,6 +258,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "No pudimos preparar tu pedido de forma segura y no se envió nada al proveedor de pago. Inténtalo de nuevo en unos minutos.",
     tariffRequired: "Tu plan no está activo ahora mismo. Elige un plan para volver a crear pines.",
     tariffInsufficient: "Esta sección no está incluida en tu plan actual. Mejora el plan para continuar.",
+    scheduleLimitReached: "El límite de pines programados de tu plan está lleno. Quita o cancela pines del calendario o sube de plan.",
     pinterestUnavailable: "Pinterest no está disponible temporalmente. No se ha perdido nada: inténtalo de nuevo en un minuto.",
     pinterestRateLimited: "Pinterest está limitando la frecuencia de esta acción. Espera un momento e inténtalo de nuevo.",
     pinterestNotConnected: "Conecta primero tu cuenta de Pinterest y luego programa la publicación.",
@@ -329,6 +333,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "Não conseguimos preparar seu pedido com segurança e nada foi enviado ao provedor de pagamento. Tente novamente em alguns minutos.",
     tariffRequired: "Seu plano não está ativo agora. Escolha um plano para voltar a criar pins.",
     tariffInsufficient: "Esta seção não está incluída no seu plano atual. Faça upgrade para continuar.",
+    scheduleLimitReached: "O limite de pins agendados do seu plano está cheio. Remova ou cancele pins do calendário ou faça upgrade do plano.",
     pinterestUnavailable: "O Pinterest está temporariamente indisponível. Nada foi perdido — tente novamente dentro de um minuto.",
     pinterestRateLimited: "O Pinterest está a limitar a frequência desta ação. Aguarde um momento e tente novamente.",
     pinterestNotConnected: "Ligue primeiro a sua conta do Pinterest e depois agende a publicação.",
@@ -403,6 +408,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "Wir konnten deine Bestellung nicht sicher vorbereiten, an den Zahlungsanbieter wurde nichts gesendet. Versuche es in ein paar Minuten erneut.",
     tariffRequired: "Dein Tarif ist derzeit nicht aktiv. Wähle einen Tarif, um wieder Pins zu erstellen.",
     tariffInsufficient: "Dieser Bereich ist in deinem aktuellen Tarif nicht enthalten. Führe ein Upgrade durch.",
+    scheduleLimitReached: "Das Limit der geplanten Pins Ihres Tarifs ist erreicht. Entfernen oder stornieren Sie Pins im Kalender oder wechseln Sie zu einem höheren Tarif.",
     pinterestUnavailable: "Pinterest ist vorübergehend nicht erreichbar. Es ist nichts verloren gegangen — versuchen Sie es in einer Minute erneut.",
     pinterestRateLimited: "Pinterest begrenzt, wie oft diese Aktion möglich ist. Warten Sie kurz und versuchen Sie es erneut.",
     pinterestNotConnected: "Verbinden Sie zuerst Ihr Pinterest-Konto und planen Sie dann die Veröffentlichung.",
@@ -477,6 +483,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "Nous n'avons pas pu préparer votre commande en toute sécurité et rien n'a été envoyé au prestataire de paiement. Réessayez dans quelques minutes.",
     tariffRequired: "Votre offre n'est pas active pour le moment. Choisissez une offre pour créer à nouveau des épingles.",
     tariffInsufficient: "Cette section n'est pas incluse dans votre offre actuelle. Passez à une offre supérieure.",
+    scheduleLimitReached: "La limite de pins programmés de votre offre est atteinte. Retirez ou annulez des pins du calendrier, ou passez à une offre supérieure.",
     pinterestUnavailable: "Pinterest est temporairement indisponible. Rien n’est perdu — réessayez dans une minute.",
     pinterestRateLimited: "Pinterest limite la fréquence de cette action. Patientez un instant, puis réessayez.",
     pinterestNotConnected: "Connectez d’abord votre compte Pinterest, puis programmez la publication.",
@@ -551,6 +558,7 @@ const MESSAGES: Record<Language, Record<AppErrorMessageKey, string>> = {
     paymentOrderPreparationFailed: "我们无法安全地准备您的订单，也没有向支付服务商发送任何内容。请几分钟后重试。",
     tariffRequired: "您的套餐当前未生效。请选择套餐以继续创建 Pin。",
     tariffInsufficient: "当前套餐不包含此功能。请升级套餐后继续。",
+    scheduleLimitReached: "您套餐的定时发布数量已达上限。请从日历中移除或取消部分 Pin，或升级套餐。",
     pinterestUnavailable: "Pinterest 暂时不可用，数据没有丢失，请稍后重试。",
     pinterestRateLimited: "Pinterest 限制了该操作的频率，请稍等片刻后重试。",
     pinterestNotConnected: "请先连接 Pinterest 账号，再安排发布。",
@@ -695,6 +703,7 @@ const PAYMENT_NOT_STARTED_CODES: Record<string, AppErrorMessageKey> = {
 const TARIFF_CODES: Record<string, AppErrorMessageKey> = {
   tariff_required: 'tariffRequired',
   tariff_insufficient: 'tariffInsufficient',
+  schedule_limit_reached: 'scheduleLimitReached',
 };
 
 const TRANSIENT_CODES: Record<string, AppErrorMessageKey> = {

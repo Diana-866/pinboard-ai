@@ -818,8 +818,6 @@ export const Landing: React.FC = () => {
             'Everything in Pro',
             'Unlimited connected accounts',
             '6,000 monthly credits (burn on renewal)',
-            'Dedicated render cluster, instant queue',
-            'Team access & moderator roles',
             'Dedicated Pinterest strategist',
             'White-label client PDF reports',
           ],

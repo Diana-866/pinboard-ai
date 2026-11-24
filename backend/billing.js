@@ -28,6 +28,47 @@ const PLANS = {
 
 const PERIOD_DAYS = 30;
 
+// Лимиты тарифов. Значения подставляет владелец: это единственное место, где они живут
+// в коде (второй источник — SQL-миграция 080 для числа подключённых аккаунтов Pinterest).
+// schedule_pins — лимит пинов в статусах scheduled и publishing на пользователя;
+// pinterest_accounts должен совпадать с миграцией 080 (analytics 1, start 3, pro 10, agency null).
+const PLAN_LIMITS = {
+  analytics: { schedule_pins: 0, pinterest_accounts: 1 },
+  start: { schedule_pins: 100, pinterest_accounts: 3 },
+  pro: { schedule_pins: 300, pinterest_accounts: 10 },
+  agency: { schedule_pins: 1000, pinterest_accounts: null },
+};
+
+function planLimitsFor(plan, active) {
+  if (!active) return { schedule_pins: 0, pinterest_accounts: 0 };
+  return PLAN_LIMITS[plan] || { schedule_pins: 0, pinterest_accounts: 0 };
+}
+
+/**
+ * Подсчёт активных расписаний пользователя: scheduled и publishing. Публикации в
+ * завершённых статусах (published/failed/cancelled/unknown-после-примирения) не считаются:
+ * лимит должен останавливать новые планы, а не наказывать за историю.
+ */
+async function countActiveSchedules(supabaseClient, userId) {
+  const { count, error } = await supabaseClient
+    .from("pin_schedules")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", String(userId))
+    .in("status", ["scheduled", "publishing"]);
+  if (error) throw error;
+  return count || 0;
+}
+
+async function assertSchedulePinLimit(supabaseClient, userId, tariffState) {
+  const limits = planLimitsFor(tariffState.plan, tariffState.active);
+  const active = await countActiveSchedules(supabaseClient, userId);
+  if (limits.schedule_pins !== null && active >= limits.schedule_pins) {
+    const error = httpError(403, `Достигнут лимит запланированных публикаций тарифа: ${limits.schedule_pins}. Завершите или отмените запланированные пины или перейдите на тариф выше.`);
+    error.details = { code: "schedule_limit_reached", limit: limits.schedule_pins, active };
+    throw error;
+  }
+}
+
 function planCatalog() {
   return Object.entries(PLANS).map(([id, p]) => ({
     id,
@@ -738,4 +779,8 @@ module.exports = {
   isValidEmailOutboxClaimRows,
   getEmailOutboxHealth,
   requeueEmailOutbox,
+  planLimitsFor,
+  countActiveSchedules,
+  assertSchedulePinLimit,
+  PLAN_LIMITS,
 };

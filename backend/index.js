@@ -2501,6 +2501,10 @@ app.post("/schedule/:id/reconcile-account", requireAuth, pinterestScheduleLimite
 
 app.post("/pins/:id/schedule", requireAuth, pinterestScheduleLimiter, requireTariff(["start", "pro", "agency"]), async (req, res) => {
   try {
+    // Лимит тарифа: пины в статусах scheduled и publishing. Проверка до записи,
+    // чтобы отказ был предсказуемым ответом, а не конфликтом на вставке.
+    const tariffState = await getTariffState(req.userId);
+    await billing.assertSchedulePinLimit(supabase, req.userId, tariffState);
     const pin = await getPinWithOwnerCheck(req.params.id, req.userId);
     if (pin.status !== "approved") {
       throw httpError(409, "Запланировать можно только одобренные пины");
