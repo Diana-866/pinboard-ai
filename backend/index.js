@@ -2001,10 +2001,61 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
         for (let offset = 0; offset < billableTasks.length; offset += 3) {
           const batch = billableTasks.slice(offset, offset + 3)
             .filter((task) => task.provider_quote_price == null);
-          const quotes = await Promise.all(batch.map(async (task) => ({
-            task,
-            quote: await quoteImageTask(task.prompt, task.model || model, task.aspect_ratio),
-          })));
+          // Каталог моделей провайдера меняется: снятая модель отвечает отказом
+          // (code 15 / HTTP 410). Вместо постоянной поломки — один запрос списка моделей
+          // и самая дешёвая картинка-модель с aspect_ratio в качестве замены. Списание
+          // идёт по фактической котировке замены, журнал сохраняет её честно.
+          let fallbackModel = null;
+          let fallbackFailure = null;
+          const quotes = [];
+          for (const task of batch) {
+            let quote = null;
+            let failure = null;
+            for (let attempt = 0; attempt < 2 && !quote; attempt += 1) {
+              const requestedModel = attempt === 0
+                ? (task.model || model)
+                : fallbackModel;
+              if (!requestedModel) break;
+              try {
+                quote = await quoteImageTask(task.prompt, requestedModel, task.aspect_ratio);
+              } catch (error) {
+                failure = error;
+              }
+            }
+            if (!quote && fallbackModel === null) {
+              try {
+                const gptunnelModule = require("./gptunnel");
+                const candidates = await gptunnelModule.listImageModelsFull();
+                fallbackModel = gptunnelModule.chooseFallbackImageModel(candidates, task.model || model);
+                if (fallbackModel) {
+                  // Идентификаторы моделей — публичный каталог провайдера, не секрет.
+                  console.log(JSON.stringify({
+                    event: "generation.model_fallback",
+                    requested: task.model || model,
+                    using: fallbackModel.id,
+                    price: fallbackModel.price,
+                  }));
+                  try {
+                    quote = await quoteImageTask(task.prompt, fallbackModel.id, task.aspect_ratio);
+                    failure = null;
+                  } catch (retryError) {
+                    failure = retryError;
+                  }
+                }
+              } catch (listError) {
+                console.log(JSON.stringify({ event: "generation.model_list_unavailable" }));
+              }
+            }
+            if (!quote) {
+              if (fallbackModel === null && fallbackFailure === null) fallbackFailure = failure;
+              quotes.push({ task, failed: true, error: failure });
+              continue;
+            }
+            quotes.push({ task, quote });
+          }
+          for (const { task, failed, error } of quotes) {
+            if (failed) throw error || fallbackFailure || new Error("Не удалось получить котировку генерации");
+          }
           for (const { task, quote } of quotes) {
             const { error } = await supabase.rpc("record_pin_generation_task_quote", {
               p_user_id: String(req.userId),

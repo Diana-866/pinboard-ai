@@ -220,6 +220,35 @@ async function listModels() {
   return models.map((m) => ({ id: m.id, price: m.price, price_unit: m.price_unit }));
 }
 
+/**
+ * Каталог картинок-моделей провайдера меняется: снятые модели отвечают отказом
+ * (code 15 / HTTP 410), а имена и цены обновляются. Выбор замены вынесен в чистую
+ * функцию: она не ходит в сеть и легко проверяется тестом.
+ */
+function chooseFallbackImageModel(models, requestedModel) {
+  const list = Array.isArray(models) ? models : [];
+  return list
+    .filter((m) => m && typeof m.id === "string"
+      && m.id !== requestedModel
+      && Number(m.price) > 0
+      && !(m.deprecated === true)
+      && (Array.isArray(m.params) ? m.params.includes("aspect_ratio")
+        : m.params && Object.prototype.hasOwnProperty.call(m.params, "aspect_ratio")))
+    .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+}
+
+async function listImageModelsFull() {
+  const response = await axios.get(`${API_BASE}/api/v2/media/models?type=IMAGE`, providerRequestConfig());
+  const models = response.data && response.data.models;
+  if (!Array.isArray(models)) throw new Error("Провайдер вернул некорректный список моделей");
+  return models.map((m) => ({
+    id: m.id,
+    price: Number(m.price),
+    deprecated: m.deprecated === true,
+    params: m.params && typeof m.params === "object" ? Object.keys(m.params) : [],
+  }));
+}
+
 async function checkImage(taskId) {
   if (typeof taskId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(taskId)) {
     throw new Error("Некорректный идентификатор задачи генерации");
@@ -298,4 +327,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { withProviderStatus, providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { withProviderStatus, chooseFallbackImageModel, listImageModelsFull, providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
