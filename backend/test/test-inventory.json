@@ -1,6 +1,6 @@
 {
   "files": 190,
-  "total": 1557,
+  "total": 1559,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -98,7 +98,7 @@
     "payment-server-error-codes.test.js": 2,
     "pin-image-access-contract.test.js": 3,
     "pin-image-compare-and-swap.test.js": 2,
-    "pin-image-lifecycle.test.js": 52,
+    "pin-image-lifecycle.test.js": 54,
     "pin-image-rate-limit-key.test.js": 5,
     "pin-patch.test.js": 5,
     "pin-status-approval-guard.test.js": 5,
