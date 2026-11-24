@@ -463,6 +463,28 @@ test("upload finalization retries a transient database response using the same f
   assert.deepEqual(finalizations[1].args, finalizations[0].args);
 });
 
+test("stale upload quarantine rejects a malformed inventory envelope before any quarantine RPC", async () => {
+  const supabase = makeStorageClient({ staleUploads: null });
+  await assert.rejects(
+    () => quarantineStalePinImageUploads({ supabase }),
+    (error) => error && error.httpStatus === 502
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_stale_pin_image_uploads",
+  ]);
+});
+
+test("stale upload reconciliation rejects a malformed inventory envelope before Storage inspection", async () => {
+  const supabase = makeStorageClient({ staleUploads: null });
+  await assert.rejects(
+    () => reconcileStalePinImageUploads({ supabase }),
+    (error) => error && error.httpStatus === 502
+  );
+  assert.deepEqual(supabase.calls.map((call) => call.name || call.type), [
+    "list_stale_pin_image_uploads",
+  ]);
+});
+
 test("stale upload quarantine retires exact paths with their current fencing tokens", async () => {
   const supabase = makeStorageClient({
     staleUploads: [
