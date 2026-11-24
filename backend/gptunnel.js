@@ -180,12 +180,31 @@ function normalizeMediaQuote(data) {
   };
 }
 
+
+/**
+ * Диагностика отказов провайдера в журнале: статус HTTP-ответа провайдера — статичное
+ * целое число, которое безопасно печатать. Без него отказ котировки выглядел в логе как
+ * безымянный Error, и причину (нет модели, нет баланса, изменённый формат) нельзя было
+ * назвать без доступа к внутренностям ответа.
+ */
+function withProviderStatus(error) {
+  if (error && error.isAxiosError && Number.isInteger(error.response && error.response.status)) {
+    error.providerStatus = error.response.status;
+  }
+  return error;
+}
+
 async function quoteImageTask(prompt, model = "flux-schnell", aspectRatio = "2:3") {
-  const response = await axios.post(
-    `${API_BASE}/api/v2/media/price`,
-    { model, prompt, params: { aspect_ratio: aspectRatio } },
-    providerRequestConfig()
-  );
+  let response;
+  try {
+    response = await axios.post(
+      `${API_BASE}/api/v2/media/price`,
+      { model, prompt, params: { aspect_ratio: aspectRatio } },
+      providerRequestConfig()
+    );
+  } catch (error) {
+    throw withProviderStatus(error);
+  }
   const quote = normalizeMediaQuote(response.data);
   if (quote.model !== model || quote.ignoredParams.length > 0 ||
       quote.params.aspect_ratio !== aspectRatio) {
@@ -243,11 +262,16 @@ async function waitForImageTask(taskId, callbacks = {}) {
 }
 
 async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3", idempotencyKey, callbacks = {}) {
-  const createResponse = await axios.post(
-    `${API_BASE}/api/v2/media/tasks`,
-    buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
-    providerRequestConfig()
-  );
+  let createResponse;
+  try {
+    createResponse = await axios.post(
+      `${API_BASE}/api/v2/media/tasks`,
+      buildImageTaskPayload(prompt, model, aspectRatio, idempotencyKey),
+      providerRequestConfig()
+    );
+  } catch (error) {
+    throw withProviderStatus(error);
+  }
 
   const task = createResponse.data;
   if (task && task.status === "failed") {
@@ -274,4 +298,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { withProviderStatus, providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };

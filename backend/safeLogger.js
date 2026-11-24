@@ -50,6 +50,11 @@ function logEvent(level, event, error, status) {
     event: safeEventName(event),
   };
   if (Number.isInteger(status) && status >= 400 && status <= 599) record.status = status;
+  // Статус ответа внешнего провайдера: целое число, не содержит данных и PII.
+  const providerStatus = error && error.providerStatus;
+  if (Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599) {
+    record.provider_status = providerStatus;
+  }
   const correlationId = currentCorrelationId();
   if (correlationId) record.correlation_id = correlationId;
   const errorName = error && typeof error.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(error.name)
