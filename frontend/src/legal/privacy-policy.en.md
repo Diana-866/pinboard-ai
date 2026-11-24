@@ -59,7 +59,7 @@ We do not sell your data and do not share it for advertising.
 Only the following providers, in the scope necessary to operate the Service:
 
 - **GPTunnel (gptunnel.ru)** — AI provider: text prompts (niche, topics, titles) and image descriptions are sent for text and image generation. Country: Russia.
-- **Hosting and database** — storage of accounts, projects, and content. Data lives on a dedicated server in the Russian Federation (`[SERVER LOCATION]` — being confirmed); the database runs on that same server, and no separate cloud service receives your data. We will update this section if the server or its country changes.
+- **Hosting and database** — storage of accounts, projects, and content. Data lives on a dedicated server in the Russian Federation (hosting provider AdminVPS); the database runs on that same server, and no separate cloud service receives your data. We will update this section if the server or its country changes.
 - **Pinterest** — publishing and reading data of your connected account only, within the permissions you granted during OAuth.
 - **Prodamus** — payment provider: payment processing; card data is handled by the provider and never reaches us.
 - **Email provider** — sending emails (registration confirmation, password reset, notifications).

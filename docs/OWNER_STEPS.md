@@ -96,8 +96,38 @@ nano deploy/.env
 В открывшемся редакторе заполните строки, которые просят значения (адрес и ключ базы, ключ AI,
 почта, Prodamus, Pinterest). Сохранить: `Ctrl+O`, `Enter`, выйти: `Ctrl+X`.
 
-**Шаг 4. Собрать и запустить.** Ассистент даст команду в этот момент — она зависит от того,
-что показали шаги 1–3.
+**Шаг 4. Поднять базу (Supabase) — минимальный набор для 8 ГБ.**
+
+```
+cp deploy/supabase/.env.example deploy/supabase/.env
+nano deploy/supabase/.env
+```
+
+В редакторе придумайте и впишите `POSTGRES_PASSWORD`, затем создайте `JWT_SECRET` командой
+`openssl rand -base64 32` и впишите её результат в строку `JWT_SECRET=`. Сохраните: `Ctrl+O`,
+`Enter`, выйти: `Ctrl+X`.
+
+Затем сгенерируйте два ключа и сразу подставьте их в конфигурацию (команда печатает ключи;
+они же потом вписываются в `deploy/.env`, поэтому скопируйте вывод себе в блокнот):
+
+```
+node backend/scripts/generate-supabase-keys.js "$(grep '^JWT_SECRET=' deploy/supabase/.env | cut -d= -f2-)"
+```
+
+Она напечатает две строки `ANON_KEY=…` и `SERVICE_ROLE_KEY=…`. Подставьте их одной командой
+(вместо слов-заглушек — ваши значения из вывода):
+
+```
+sed -i "s/ANON_KEY_VALUE_HERE/ВАШ_ANON_KEY/; s/SERVICE_ROLE_KEY_VALUE_HERE/ВАШ_SERVICE_ROLE_KEY/" deploy/supabase/kong.yml
+docker compose -f deploy/supabase/docker-compose.yml up -d
+docker compose -f deploy/supabase/docker-compose.yml ps
+```
+
+**Что должно получиться:** `ps` показывает 5 сервисов со статусом `Up` (`db`, `kong`, `rest`,
+`auth`, `storage`).
+
+**Шаг 5. Применить таблицы (миграции) и собрать остальное.** Ассистент даст команды в этот
+момент — они зависят от вывода шага 4.
 
 **Что прислать в ответ:** текст, который напечатают команды проверки (строки с `OK`, `applied`,
 `200`). Первые 20 строк журнала, если что-то не запустилось.

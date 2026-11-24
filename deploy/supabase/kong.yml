@@ -1,0 +1,53 @@
+# Декларативная конфигурация Kong (шлюз Supabase): только нужные маршруты.
+# Rest, auth и storage доступны через один порт (8000); наружу он не открывается.
+#
+# Kong не подставляет переменные окружения в декларативный конфиг, поэтому ключи вписываются
+# literal: перед первым запуском замените два значения-заглушки командой из OWNER_STEPS.md
+# (sed с вашими сгенерированными ANON_KEY и SERVICE_ROLE_KEY).
+
+_format_version: "1.1"
+
+services:
+  - name: rest-v1
+    _comment: PostgREST: весь доступ приложения к таблицам
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-routes
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+
+  - name: auth-v1
+    _comment: GoTrue: в PinPosy сессии выдаёт собственный backend, GoTrue используется служебно
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-routes
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: cors
+
+  - name: storage-v1
+    _comment: Storage API: бакет pin-images, картинки пинов
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-routes
+        strip_path: true
+        paths:
+          - /storage/v1/
+    plugins:
+      - name: cors
+
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: ANON_KEY_VALUE_HERE
+  - username: service_role
+    keyauth_credentials:
+      - key: SERVICE_ROLE_KEY_VALUE_HERE

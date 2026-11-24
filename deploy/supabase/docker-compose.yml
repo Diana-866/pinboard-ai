@@ -1,0 +1,132 @@
+# Self-hosted Supabase для одного VPS (AdminVPS Start: 4 ядра, 8 ГБ, 80 ГБ).
+#
+# Минимальный набор: db, kong (шлюз), rest (PostgREST), auth (GoTrue), storage (Storage API).
+# Отключено как неиспользуемое PinPosy: studio (веб-админка), analytics/logflare, vector,
+# realtime, imgproxy (преобразование картинок выключено в самом storage), functions, pooler.
+#
+# Запуск из каталога deploy/supabase: docker compose up -d
+# Перед запуском скопируйте .env.example в .env и заполните.
+#
+# Приложение ходит через Kong на порт 8000: SUPABASE_URL=http://supabase-kong:8000/rest/v1
+# Порт наружу не открывается (только ports для отладки закомментированы) — доступ только
+# по внутренней сети compose (deploy/docker-compose.yml подключает эту сеть).
+
+name: pinposy-supabase
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: supabase/postgres:15.8.1.041
+    restart: unless-stopped
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./volumes/db/_volumes_settings.sql:/etc/postgresql/_volumes_settings.sql:ro
+      - ./volumes/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./volumes/db/logs:/var/log/postgresql
+    # Память настроена под 8 ГБ машины: shared_buffers 1 ГБ, work_mem 16 МБ.
+    # Родной compose по умолчанию рассчитан на крупные машины и съедает память.
+    logging: *logging
+
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_LOG_LEVEL: notice
+      KONG_PROXY_ACCESS_LOG: /dev/null
+      KONG_ADMIN_ACCESS_LOG: /dev/null
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "off"
+    volumes:
+      - ./kong.yml:/var/lib/kong/kong.yml:ro
+    # 127.0.0.1: временно, чтобы проверить `curl http://127.0.0.1:8000/rest/v1/` c сервера.
+    # После проверки строка закомментируется: наружу Kong не нужен.
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      - db
+      - rest
+      - auth
+      - storage
+    logging: *logging
+
+  rest:
+    image: postgrest/postgrest:v12.2.0
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: "3600"
+    depends_on:
+      - db
+    logging: *logging
+
+  auth:
+    image: supabase/gotrue:v2.164.0
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: "0.0.0.0"
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:?set API_EXTERNAL_URL}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      # PinPosy шлёт письма собственным SMTP-модулем (backend/.env), GoTrue письма не пишет.
+      GOTRUE_SMTP_HOST: ""
+      GOTRUE_SMTP_PORT: "0"
+      GOTRUE_SMTP_ADMIN_EMAIL: ""
+      GOTRUE_MAILER_URLPATHS_INVITE: "/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: "/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_RECOVERY: "/auth/v1/verify"
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/auth/v1/verify"
+    depends_on:
+      - db
+    logging: *logging
+
+  storage:
+    image: supabase/storage-api:v1.24.0
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${ANON_KEY:?set ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY:?set SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_DB_SCHEMAS: storage,public
+      PGRST_DB_URI: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGOPTIONS: "-c search_path=storage,public"
+      FILE_SIZE_LIMIT: "10485760"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      UPLOAD_FILE_SIZE_LIMIT: "10485760"
+      STORAGE_S3_REGION: ""
+      GLOBAL_S3_BUCKET: ""
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      - db
+      - rest
+    logging: *logging
+
+volumes:
+  db_data:
+  storage_data:
