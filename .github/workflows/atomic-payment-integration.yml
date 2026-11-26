@@ -100,16 +100,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
+      - name: Create Supabase fixture roles
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN"
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -c "CREATE ROLE authenticated NOLOGIN"
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -c "CREATE ROLE service_role NOLOGIN"
       - name: Prepare disposable schema
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
-          -- Supabase roles needed by this disposable vanilla-PostgreSQL fixture.
-          CREATE ROLE anon NOLOGIN;
-          CREATE ROLE authenticated NOLOGIN;
-          CREATE ROLE service_role NOLOGIN;
-          -- CI upgrade-compatibility fixture. Cluster roles are provisioned above.
+          -- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.
           create table public.users (
             id uuid primary key default gen_random_uuid(),
             email text not null,
