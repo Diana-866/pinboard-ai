@@ -157,6 +157,7 @@ const CODE_IN_DOCS_COMMITS = new Map([
 ]);
 
 test("every change of this session has a row, and every row points at a reason", (t) => {
+  assert.match(planText, /## Release-line commit receipts — 2026-11-26/);
   // The owner needs the whole development sequence reconstructed. An earlier version of this
   // guard only validated the commits the record happened to mention, so it passed while 49 of
   // 109 commits had no entry at all, two of them behaviour changes. It now runs in both
@@ -179,7 +180,14 @@ test("every change of this session has a row, and every row points at a reason",
   const rows = chronologyRows(audit);
   assert.ok(rows.length > 20, `expected the chronology appendix, found ${rows.length} rows`);
   const byHash = new Map(rows.map((row) => [row.hash, row]));
-  const head = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+  // PR workflows check out a synthetic merge commit. Exempt both that merge HEAD and
+  // the actual PR head: neither can cite itself, while all earlier commits remain required.
+  const checkedOutHead = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+  const requestedHead = process.env.PINPOSY_PR_HEAD_SHA;
+  const requestedHeadShort = requestedHead
+    ? execFileSync("git", ["rev-parse", "--short", requestedHead], { cwd: ROOT, encoding: "utf8" }).trim()
+    : checkedOutHead;
+  const exemptHeads = new Set([checkedOutHead, requestedHeadShort]);
 
   // Direction one: a commit that the appendix does not list.
   const missing = [];
@@ -210,7 +218,7 @@ test("every change of this session has a row, and every row points at a reason",
     // Коммит, названный в плане 14 дней, тоже имеет причину: план — единственный файл записей.
     if (new RegExp("`" + hash + "`").test(planText)) continue;
     // The newest commit cannot cite itself, so the record catches up on the next one.
-    if (hash === head) continue;
+    if (exemptHeads.has(hash)) continue;
     missing.push(`${hash} ${subject}`);
   }
   assert.deepEqual(missing, [], `commits with no row in the chronology:\n${missing.join("\n")}`);

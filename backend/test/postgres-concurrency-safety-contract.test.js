@@ -25,6 +25,11 @@ test('shared guard requires explicit opt-in and a local disposable database', ()
   assert.match(helper, /localhost\|127\.0\.0\.1\|::1/);
   assert.match(helper, /pinposy_verify_/);
   assert.match(helper, /current_database\(\)/);
+  assert.match(helper, /GITHUB_ACTIONS/);
+  assert.match(helper, /GITHUB_RUN_ID/);
+  assert.match(helper, /GITHUB_RUN_ATTEMPT/);
+  assert.ok(helper.includes('172\\.(1[6-9]|2[0-9]|3[0-1])\\.'), 'only the private Docker bridge range may be considered');
+  assert.match(helper, /Docker bridge PostgreSQL is allowed only for this run's exact disposable CI database/);
   assert.match(helper, /inet_server_addr\(\)/);
   assert.match(helper, /psql_base=\(psql .* -h "\$PGHOST" .* -d "\$PGDATABASE"\)/);
   assert.match(helper, /mktemp -d/);
@@ -94,6 +99,16 @@ test('CI workflow routes concurrency tests through a unique disposable clone', (
   assert.ok(runner.includes('PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1'));
   assert.ok(runner.includes('-T pinposy_test'));
   assert.ok(runner.includes('dropdb --if-exists --force'));
+  assert.ok(runner.includes('createdb --maintenance-db=postgres'));
+  assert.ok(runner.includes('dropdb --if-exists --force --maintenance-db=postgres'));
+  assert.doesNotMatch(runner, /\bcreatedb[^\n]*\s-d\s/);
   assert.ok(runner.includes('trap cleanup EXIT'));
   assert.ok(runner.includes('127.0.0.1|localhost|::1'));
+  const authRecovery = read('backend/test/auth-recovery-concurrency.sh');
+  const integration = read('backend/test/postgres-integration.sql');
+  assert.match(authRecovery, /sha256sum/);
+  assert.ok(authRecovery.includes("delete from public.auth_tokens where user_id = '$USER_ID';"));
+  const tokenCleanup = integration.indexOf("delete from public.auth_tokens where user_id = v_user::text;");
+  const userCleanup = integration.indexOf("delete from public.users where id = v_user;");
+  assert.ok(tokenCleanup >= 0 && tokenCleanup < userCleanup, 'integration fixture must delete auth tokens before deleting its user');
 });
