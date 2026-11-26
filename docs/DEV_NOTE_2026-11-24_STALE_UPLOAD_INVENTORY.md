@@ -24,3 +24,18 @@ Both `quarantineStalePinImageUploads` and `reconcileStalePinImageUploads` consum
 
 ## Next
 Run `node --test backend/test/pin-image-lifecycle.test.js backend/test/test-inventory.test.js` on Windows against this branch. Do not merge until runtime and CI results are confirmed.
+
+## CI follow-up — 2026-11-26
+
+The first real CI attempt exposed unrelated release-gate defects as well as the new inventory tests:
+
+- Backend inventory was stale: recorded 1,559, actual declaration count 1,561. Updated the total to 1,561.
+- Documentation-integrity checks cite valid historical commits, but the two backend workflows used shallow checkout. Set `fetch-depth: 0` on the backend checkout in Persisted Boards and Prodamus webhook workflows.
+- The atomic-payment workflow uses a vanilla PostgreSQL service, while its disposable schema fixture assumes Supabase roles. Added a separate role-bootstrap step creating only `NOLOGIN` `anon`, `authenticated`, and `service_role` roles. Kept the schema heredoc byte-for-byte aligned with the shared upgrade fixture.
+- One authenticated-reads test failed because its backend subprocess did not start. The test selected a random port from a fixed 2,000-port range, which can collide with concurrent test processes. Replaced that selection with an OS-assigned loopback port obtained from a temporary listener.
+
+## CI evidence and status
+
+- Previous PR #99 runs: backend inventory failed (1,559 vs 1,561), commit-citation checks failed under shallow checkout, and PostgreSQL schema setup failed with missing role `anon`.
+- After the corrections, new checks were triggered for head `afd3b28d094e6052bce23b229a50bb019429a23a`; at the time of this note, backend and PostgreSQL jobs were still running. No PASS is claimed for the rerun.
+- No production database, Supabase, Storage, DNS, payments, or deployment settings changed.
