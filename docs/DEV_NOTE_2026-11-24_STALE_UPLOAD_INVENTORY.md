@@ -39,3 +39,10 @@ The first real CI attempt exposed unrelated release-gate defects as well as the 
 - Previous PR #99 runs: backend inventory failed (1,559 vs 1,561), commit-citation checks failed under shallow checkout, and PostgreSQL schema setup failed with missing role `anon`.
 - After the corrections, new checks were triggered for head `afd3b28d094e6052bce23b229a50bb019429a23a`; at the time of this note, backend and PostgreSQL jobs were still running. No PASS is claimed for the rerun.
 - No production database, Supabase, Storage, DNS, payments, or deployment settings changed.
+
+## Follow-up — port collision regression test
+
+- The authenticated-reads startup failure was consistent with the old test selecting a random port from a fixed 2,000-port range while multiple test files run concurrently. The backend test now asks the OS for an available loopback port via a temporary listener.
+- Added a focused test for the port allocator.
+- Final expected backend inventory after this addition: **1,562 declarations**; `api-authenticated-reads.test.js`: **117`.
+- The test-file change retriggers CI on the latest PR head. Await those results; no runtime PASS is claimed yet.
