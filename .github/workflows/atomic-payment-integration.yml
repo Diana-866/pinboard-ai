@@ -261,6 +261,7 @@ jobs:
             to service_role;
           
           SQL
+      # Keep this explicit CI replay aligned with the canonical 010-167 migration chain.
       - name: Apply atomic migrations
         env:
           PGPASSWORD: postgres
