@@ -25,6 +25,11 @@ test('shared guard requires explicit opt-in and a local disposable database', ()
   assert.match(helper, /localhost\|127\.0\.0\.1\|::1/);
   assert.match(helper, /pinposy_verify_/);
   assert.match(helper, /current_database\(\)/);
+  assert.match(helper, /GITHUB_ACTIONS/);
+  assert.match(helper, /GITHUB_RUN_ID/);
+  assert.match(helper, /GITHUB_RUN_ATTEMPT/);
+  assert.ok(helper.includes('172\\.(1[6-9]|2[0-9]|3[0-1])\\.'), 'only the private Docker bridge range may be considered');
+  assert.match(helper, /Docker bridge PostgreSQL is allowed only for this run's exact disposable CI database/);
   assert.match(helper, /inet_server_addr\(\)/);
   assert.match(helper, /psql_base=\(psql .* -h "\$PGHOST" .* -d "\$PGDATABASE"\)/);
   assert.match(helper, /mktemp -d/);
