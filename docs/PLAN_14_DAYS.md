@@ -359,3 +359,5 @@ CI's bidirectional chronology guard exposed code/test/workflow commits after the
 |---|---|
 | `43fbdcf9` | Pass the actual pull-request head SHA to the backend chronology guard. |
 | `176879d1` | Pass the actual pull-request head SHA to the Prodamus backend regression job. |
+
+| `df099b46` | Use the actual PR head SHA for the chronology self-reference exemption. |
