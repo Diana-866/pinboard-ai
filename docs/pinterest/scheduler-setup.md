@@ -219,3 +219,20 @@ Migration 122 создаёт таблицу мониторинга и RPC. Migra
 **Rollout:** миграции 122–123 уже находятся в `main`, но их применение к production Supabase не подтверждено. До запуска worker/cron требуются staging-прогон точной последовательности миграций и backend на одном commit, Node/PostgreSQL integration tests, проверка секретов и отдельное подтверждение владельца. В production должен работать только один способ пробуждения очереди — отдельный worker ИЛИ внешний cron.
 
 Статусы admin health: `not_seen`, `running`, `healthy`, `failed`, `stale`. Heartbeat подтверждает вызов endpoint, но не доступность Pinterest API и не заменяет сверку `scheduled/publishing/unknown`.
+
+
+## Контейнер для отдельного worker-сервиса
+
+В репозитории есть готовый production-контейнер `backend/Dockerfile.worker`. Он устанавливает production-зависимости, запускает процесс без root и выполняет только `npm run worker` — HTTP API внутри контейнера не поднимается.
+
+Настройки отдельного Docker worker-сервиса:
+
+- **Build context:** `backend/`
+- **Dockerfile:** `Dockerfile.worker`
+- **Количество экземпляров:** ровно 1
+- **Команда запуска:** задана в Dockerfile, переопределять её не нужно
+- **Environment:** `PINPOSY_BACKEND_URL` (только origin backend, например `https://pinboard-ai-backend.onrender.com`) и `PINPOSY_SCHEDULER_SECRET` (тот же секрет, что и на backend)
+- **Restart policy:** always / on failure
+- **Health check:** проверять процесс/состояние сервиса средствами хостинга; контейнер намеренно не открывает HTTP-порт
+
+Не включай этот контейнер до применения миграций 122–123 на staging, прохождения SQL/backend integration tests на том же commit и подтверждения, что backend содержит соответствующие внутренний endpoint и RPC. Не запускай одновременно контейнер и внешний cron. Для production потребуется один постоянно работающий worker; если выбранный хостинг не поддерживает отдельные процессы на допустимом тарифе, используй один внешний cron вместо этого контейнера.

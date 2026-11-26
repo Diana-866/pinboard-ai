@@ -1,0 +1,14 @@
+# Build with backend/ as the Docker build context.
+# Deploy as one dedicated worker service, not as part of the web API replicas.
+FROM node:22-alpine
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --chown=node:node . .
+USER node
+
+CMD ["npm", "run", "worker"]
