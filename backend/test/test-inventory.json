@@ -1,6 +1,6 @@
 {
   "files": 190,
-  "total": 1559,
+  "total": 1561,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
