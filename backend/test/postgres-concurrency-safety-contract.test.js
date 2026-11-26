@@ -94,6 +94,9 @@ test('CI workflow routes concurrency tests through a unique disposable clone', (
   assert.ok(runner.includes('PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1'));
   assert.ok(runner.includes('-T pinposy_test'));
   assert.ok(runner.includes('dropdb --if-exists --force'));
+  assert.ok(runner.includes('createdb --maintenance-db=postgres'));
+  assert.ok(runner.includes('dropdb --if-exists --force --maintenance-db=postgres'));
+  assert.doesNotMatch(runner, /\bcreatedb[^\n]*\s-d\s/);
   assert.ok(runner.includes('trap cleanup EXIT'));
   assert.ok(runner.includes('127.0.0.1|localhost|::1'));
 });
