@@ -1657,6 +1657,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       }
                       const queuedDescription = pendingDescriptionSaveRef.current;
                       const recoveredDescription = readPendingPinDescription(board.id, currentPin.id);
+                      // The queue payload must carry the newest description we just
+                      // flushed, not the stale currentPin closure. Approval persists
+                      // this payload again and could otherwise undo the successful PATCH.
+                      let descriptionForReview = currentPin.description;
                       const descriptionToFlush = queuedDescription?.pinId === currentPin.id && queuedDescription.boardId === board.id
                         ? queuedDescription
                         : recoveredDescription
@@ -1668,6 +1672,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                             }
                           : null;
                       if (descriptionToFlush) {
+                        descriptionForReview = descriptionToFlush.description;
                         if (descriptionSaveTimerRef.current) {
                           clearTimeout(descriptionSaveTimerRef.current);
                           descriptionSaveTimerRef.current = null;
@@ -1693,7 +1698,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                         id: `review-${currentPin.id}`,
                         pinId: currentPin.id,
                         title,
-                        description: currentPin.description,
+                        description: descriptionForReview,
                         boardName: board.name,
                         boardId: board.id,
                         imageUrl: currentPin.imageUrl,
