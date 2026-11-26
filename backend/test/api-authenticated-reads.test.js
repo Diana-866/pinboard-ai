@@ -3767,3 +3767,7 @@ test("malformed pending-order inventory response is not presented as no unresolv
   }
 });
 
+test("authenticated-read backend port allocator returns an OS-assigned loopback port", async () => {
+  const port = await getAvailablePort();
+  assert.ok(Number.isInteger(port) && port >= 1 && port <= 65535);
+});
