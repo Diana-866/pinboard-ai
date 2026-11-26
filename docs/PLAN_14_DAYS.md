@@ -335,3 +335,10 @@ CI's bidirectional chronology guard exposed code/test/workflow commits after the
 | `e3d7ee5d` | test: guard disposable database maintenance connection flags |
 | `83ba6723` | ci: document run-scoped disposable concurrency clone |
 
+
+### Follow-up — disposable PostgreSQL CI boundary
+
+| Commit | Change |
+|---|---|
+| `8ef8d43c` | Permit the GitHub Actions Docker bridge address only when PGHOST is loopback and PGDATABASE exactly matches this run's unique disposable database. |
+| `074331fd` | Add contract assertions for the narrowly scoped CI bridge exception. |
