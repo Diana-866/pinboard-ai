@@ -249,8 +249,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const descriptionSaveBoardIdRef = React.useRef(selectedBoardId);
   descriptionSaveBoardIdRef.current = selectedBoardId;
   const generationKeyRef = React.useRef<string | null>(null);
+  // Fence generation responses by authenticated owner. A request started by
+  // one account must never populate the next account's editor after a session switch.
+  const generationOwnerIdRef = React.useRef(userId);
   // State updates render asynchronously; this ref blocks same-tick double submissions.
   const generationInFlightRef = React.useRef(false);
+
+  React.useLayoutEffect(() => {
+    if (generationOwnerIdRef.current === userId) return;
+    generationOwnerIdRef.current = userId;
+    generationInFlightRef.current = false;
+    generationKeyRef.current = null;
+    setIsGenerating(false);
+    setGeneratedPins([]);
+    setActivePinIndex(0);
+    setScheduledSuccess(false);
+    setReviewQueueSuccess(false);
+  }, [userId]);
   // Serialize edits per pin and let scheduling wait for the final persisted version.
   const pendingPinSavesRef = React.useRef<Map<string, Promise<unknown>>>(new Map());
   // Keep the user's latest title choice available to scheduling even before React
@@ -361,6 +376,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // Restore persisted pins when the selected board changes or the generator remounts.
   useEffect(() => {
     let active = true;
+    const ownerId = userId;
     if (!selectedBoardName) {
       setGeneratedPins([]);
       setActivePinIndex(0);
@@ -378,7 +394,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
     apiRequest(`/boards/${encodeURIComponent(selectedBoardId)}/pins`)
       .then((rows) => {
-        if (!active) return;
+        if (!active || generationOwnerIdRef.current !== ownerId) return;
         // A malformed/empty HTTP payload is not the same as a board with zero
         // pins. Never turn an unexpected API response into a silent empty state.
         const restored = requireSavedPinsArray(rows).map((row: any) => {
@@ -418,13 +434,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       })
       .catch((error) => {
         console.error('[pins] Не удалось восстановить сохранённые пины:', error);
-        if (active) {
+        if (active && generationOwnerIdRef.current === ownerId) {
           setGeneratedPins([]);
           setSavedPinsLoadError(t.generator.savedPinsLoadError);
         }
       })
       .finally(() => {
-        if (active) setIsLoadingSavedPins(false);
+        if (active && generationOwnerIdRef.current === ownerId) setIsLoadingSavedPins(false);
       });
 
     return () => {
@@ -459,7 +475,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         });
       }
     };
-  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt]);
+  }, [selectedBoardId, selectedBoardName, savedPinsReloadAttempt, userId]);
 
   // Quick preset topic suggestions
   const topicPresets = [
@@ -487,6 +503,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       return;
     }
     if (generationInFlightRef.current) return;
+    const requestOwnerId = userId;
     generationInFlightRef.current = true;
     setIsGenerating(true);
     setScheduledSuccess(false);
@@ -555,6 +572,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       // durable fields required by the canvas. A malformed success payload is
       // recoverable from the server with the same key; it is not a completed UI result.
       const validatedRows = requireGeneratedPinsArray(rows);
+      if (generationOwnerIdRef.current !== requestOwnerId) return;
 
       const results: GeneratedPinVariation[] = validatedRows.map((row: any) => ({
         id: String(row.id),
@@ -580,6 +598,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       generationKeyRef.current = null;
       clearPendingGenerationRequest(requestFingerprint);
     } catch (err) {
+      // Ignore responses from a request owned by a previous authenticated session.
+      if (generationOwnerIdRef.current !== requestOwnerId) return;
       // The server only emits generation_request_failed after a definitive failure.
       // Rotate the key then; unknown/in-progress outcomes must keep their original key.
       if (isDefinitiveGenerationFailure(err)) {
@@ -589,8 +609,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       console.error('Error generating pins:', err);
       window.alert(err instanceof Error ? err.message : t.generator.errorGeneratePins);
     } finally {
-      generationInFlightRef.current = false;
-      setIsGenerating(false);
+      if (generationOwnerIdRef.current === requestOwnerId) {
+        generationInFlightRef.current = false;
+        setIsGenerating(false);
+      }
     }
   };
 
