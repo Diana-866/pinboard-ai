@@ -157,6 +157,7 @@ const CODE_IN_DOCS_COMMITS = new Map([
 ]);
 
 test("every change of this session has a row, and every row points at a reason", (t) => {
+  assert.match(planText, /## Release-line commit receipts — 2026-11-26/);
   // The owner needs the whole development sequence reconstructed. An earlier version of this
   // guard only validated the commits the record happened to mention, so it passed while 49 of
   // 109 commits had no entry at all, two of them behaviour changes. It now runs in both
