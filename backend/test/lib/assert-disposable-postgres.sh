@@ -17,7 +17,23 @@ identity="$("${psql_base[@]}" -At -F '|' -c "select current_database(), coalesce
 actual_database="${identity%%|*}"
 actual_address="${identity#*|}"
 [[ "$actual_database" == "$PGDATABASE" ]] || { echo "Refusing tests: connected database does not match PGDATABASE." >&2; exit 2; }
-case "$actual_address" in 127.*|::1) ;; *) echo "Refusing tests: PostgreSQL server address '$actual_address' is not loopback." >&2; exit 2 ;; esac
+if [[ "$actual_address" == 127.* || "$actual_address" == "::1" ]]; then
+  :
+elif [[ "$actual_address" =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\.([0-9]{1,3})\.([0-9]{1,3})/32$ ]]; then
+  bridge_octet_3="${BASH_REMATCH[2]}"
+  bridge_octet_4="${BASH_REMATCH[3]}"
+  if (( 10#${bridge_octet_3} > 255 || 10#${bridge_octet_4} > 255 )) ||
+     [[ "${GITHUB_ACTIONS:-}" != "true" ]] ||
+     [[ ! "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]] ||
+     [[ ! "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] ||
+     [[ "$PGDATABASE" != "pinposy_verify_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}" ]]; then
+    echo "Refusing tests: Docker bridge PostgreSQL is allowed only for this run's exact disposable CI database." >&2
+    exit 2
+  fi
+else
+  echo "Refusing tests: PostgreSQL server address '$actual_address' is not an allowed loopback or isolated CI bridge." >&2
+  exit 2
+fi
 TEST_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pinposy-concurrency.XXXXXX")"
 cleanup_test_tmp_dir() {
   if [[ -n "${TEST_TMP_DIR:-}" && -d "$TEST_TMP_DIR" && "$TEST_TMP_DIR" == "${TMPDIR:-/tmp}"/pinposy-concurrency.* ]]; then
