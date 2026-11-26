@@ -352,3 +352,10 @@ CI's bidirectional chronology guard exposed code/test/workflow commits after the
 | `9e9a46af` | Delete SQL integration fixture auth tokens before deleting its user. |
 | `64173aae` | Derive the concurrency password-reset token hash from its unique user ID. |
 | `a33e9fbb` | Add contract coverage for token uniqueness and cleanup order. |
+
+### Follow-up — PR merge checkout chronology
+
+| Commit | Change |
+|---|---|
+| `43fbdcf9` | Pass the actual pull-request head SHA to the backend chronology guard. |
+| `176879d1` | Pass the actual pull-request head SHA to the Prodamus backend regression job. |
