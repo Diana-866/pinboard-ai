@@ -230,3 +230,108 @@ worker: удаление    →  Supabase
 - Файлы развёртывания созданы (`deploy/`), но **ни один образ не собирался**: Docker на машине разработки отсутствует. Статус `[~]` — сделано, не проверено.
 - Бэкенд запускается как `node index.js`, воркеры — отдельными процессами (`npm run worker`, `npm run worker:account-deletion`).
 - Публикации в Pinterest Trial идут в песочницу. Реальный пин на реальной доске в Trial не появляется — это не обещание и не проверка.
+
+## Release-line commit receipts — 2026-11-26
+
+CI's bidirectional chronology guard exposed code/test/workflow commits after the existing session boundary that were recorded in PROJECT_STATE and development notes but not named in this plan. This compact receipt ledger maps each commit to its subject; implementation rationale and verification state remain in the source diffs and dated development note.
+
+| Commit | Change |
+|---|---|
+| `ec4ab0f4` | ci: document full migration chain in atomic gate |
+| `70c33add` | test(db): assert CI and Windows gates replay 010-167 |
+| `86a4a6a1` | fix(db): make Windows integration gate replay migrations 010-167 |
+| `d922275e` | ci: apply the full 010-167 migration chain in atomicity gate |
+| `168b0fd6` | ci: document full history for webhook backend tests |
+| `bee808cc` | ci: document backend full-history checkout |
+| `df5f50b8` | test: update inventory for port allocator regression |
+| `f4f66ed5` | test: cover OS-assigned loopback port helper |
+| `afd3b28d` | test: avoid backend port collisions in authenticated route suite |
+| `fd145867` | ci: create fixture roles before aligned schema setup |
+| `3c2d7997` | ci: align disposable role setup with fixture contract |
+| `08264863` | ci: provision Supabase roles in disposable PostgreSQL fixture |
+| `55f6fd24` | ci: fetch full history for documentation integrity |
+| `fae42428` | ci: fetch full history for backend documentation integrity |
+| `ecd21ef4` | test: correct backend inventory total from CI |
+| `8c95b93c` | test: refresh pin image lifecycle inventory |
+| `ee084ca6` | test(storage): cover malformed stale upload inventory |
+| `1b11eb37` | fix(storage): reject malformed stale upload inventory |
+| `d1b9231e` | feat(generation): автоматическая замена снятой модели изображений самой дешёвой доступной |
+| `a18c58c1` | feat(diag): статус HTTP-ответа AI-провайдера в журнале отказов |
+| `95ecb061` | ui(admin): mention deletion inventory section |
+| `5530f902` | fix(admin UI): validate deletion inventory payload |
+| `7ec3871f` | test(admin): correct deletion panel read-only assertion |
+| `d1120e2f` | fix(admin UI): clear stale deletion inventory on error |
+| `b08f4771` | test(admin): cover deletion inventory panel safety |
+| `5c77e59f` | feat(admin): expose deletion inventory tab |
+| `82986881` | feat(admin): add account deletion inventory panel |
+| `ea8ed10b` | test: update inventory for admin DB error mapping |
+| `f3cc3a33` | test(admin): cover DB outage and malformed auth lookup |
+| `4b144881` | fix(admin): distinguish auth denial from DB outage |
+| `ed5bceab` | fix(admin): expose deletion inventory truncation safely |
+| `7e0de2be` | test: update inventory for deletion list validation |
+| `8f82af51` | test(admin): cover null deletion inventory lists |
+| `07acd29f` | fix(admin): reject null deletion inventory lists |
+| `cd537c3c` | refactor(billing): make REST cap sentinel explicit |
+| `18ddcfc2` | refactor(admin): make REST cap sentinel explicit |
+| `4a4d7faa` | test(billing): exercise exact REST row cap |
+| `39ace6f2` | test(admin): exercise exact REST row cap |
+| `3672f618` | fix(billing): fail closed at REST row cap |
+| `649f6b7a` | fix(admin): fail closed at REST row cap |
+| `1af375d1` | test: update inventory for bounded reconciliation reads |
+| `ca3ee793` | test(billing): cover capped payment match reads |
+| `2e676b0e` | test(admin): cover capped reservation match reads |
+| `095ac7f6` | fix(billing): reject capped payment match queries |
+| `3149361b` | fix(admin): fail closed on capped reservation match reads |
+| `7d8d946e` | test(admin): update payment request inventory |
+| `ff5d92c3` | test(admin): cover payment creation queue truncation |
+| `64f2bdef` | fix(admin): report truncated payment creation queue |
+| `e3c7b44b` | test(inventory): register scoped task truncation regression |
+| `71f7ffe7` | test(admin): scope task truncation regression by batch |
+| `a6f0e0c9` | fix(admin): scope task truncation to affected batch |
+| `f0c784b5` | test(inventory): register reservation truncation regression |
+| `15d5baec` | test(admin): cover reservation queue truncation |
+| `7099c6fc` | fix(admin): report truncated reservation queue |
+| `5047f749` | test(inventory): record duplicate payment match regression |
+| `b64d0e69` | test(billing): ensure duplicate fixture uses distinct local IDs |
+| `b9a95230` | test(billing): cover duplicate local payment reconciliation rows |
+| `7b7ddd4c` | fix(billing): reject duplicate subscription reconciliation matches |
+| `82e84cfe` | test(inventory): record payment reconciliation regression |
+| `188a2e95` | test(billing): reject malformed payment reconciliation reads |
+| `866a8206` | fix(billing): validate payment creation reconciliation reads |
+| `19c883ab` | test(inventory): record financial reconciliation regressions |
+| `b31b1f4a` | test(billing): reject malformed credit purchase history |
+| `d08d5350` | fix(billing): reject malformed credit purchase history |
+| `78698054` | test(billing): fail closed on malformed reconciliation reads |
+| `0958b429` | fix(billing): validate financial reconciliation query envelopes |
+| `c8f0835a` | test(inventory): record retention inventory regression |
+| `1d78395f` | test(storage): reject malformed retention inventory rpc |
+| `f7d6ade5` | fix(storage): reject malformed retention inventory rpc |
+| `0223cb5e` | test(inventory): record malformed billing read regressions |
+| `6fbcf5bf` | test(billing): reject malformed email outbox health reads |
+| `b2cd1d44` | test(billing): reject malformed admin subscription inventory |
+| `63c38302` | fix(billing): reject malformed subscription and outbox reads |
+| `5e88940e` | test(inventory): record billing and schedule regressions |
+| `dfc64df3` | test(schedule): assert account recovery fails closed |
+| `e2cc97ed` | test(billing): reject malformed admin inventory reads |
+| `42e45469` | fix(billing): reject malformed admin inventory reads |
+| `cfe38600` | test(inventory): record schedule metadata regression |
+| `6978b999` | test(schedule): assert retry metadata fail-closed contract |
+| `94ae91a3` | test(schedule): disable retry on malformed metadata |
+| `afc394d9` | fix(schedule): disable retries on malformed metadata |
+| `3db7df92` | test(inventory): record review queue regression coverage |
+| `5bb199b3` | test(review-queue): assert fail-closed route contract |
+| `0a76269d` | test(review-queue): prevent cleanup on malformed reads |
+| `d3187215` | test(review-queue): cover malformed query envelopes |
+| `9d6b1c9d` | fix(review-queue): fail closed on malformed related reads |
+| `8b80eff4` | fix(review-queue): validate database query envelopes |
+| `7a57d1aa` | test(verify): prevent stale Windows migration summary |
+| `d1cdf597` | fix(verify): correct Windows migration summary range |
+| `e02b16f3` | test(verify): correct migration inventory regex |
+| `4ff3b350` | fix(verify): include migration 166 in replay checks |
+| `f84885b0` | fix(auth): report verification email delivery accurately |
+| `f4ddd250` | test(auth): cover fail-closed consent persistence |
+| `91e6edf0` | fix(auth): fail closed when consent timestamp column is missing |
+| `8250189b` | fix(test): use supported maintenance-db option for disposable clone |
+| `e3d7ee5d` | test: guard disposable database maintenance connection flags |
+| `83ba6723` | ci: document run-scoped disposable concurrency clone |
+
