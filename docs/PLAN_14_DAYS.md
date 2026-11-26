@@ -344,3 +344,11 @@ CI's bidirectional chronology guard exposed code/test/workflow commits after the
 | `074331fd` | Add contract assertions for the narrowly scoped CI bridge exception. |
 
 | `24272621` | Require the release-line chronology receipt ledger in the documentation-integrity test. |
+
+### Follow-up — SQL fixture isolation
+
+| Commit | Change |
+|---|---|
+| `9e9a46af` | Delete SQL integration fixture auth tokens before deleting its user. |
+| `64173aae` | Derive the concurrency password-reset token hash from its unique user ID. |
+| `a33e9fbb` | Add contract coverage for token uniqueness and cleanup order. |
