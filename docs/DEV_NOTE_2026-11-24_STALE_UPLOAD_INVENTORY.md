@@ -89,3 +89,9 @@ Full-history CI revealed that the documentation chronology test ran on GitHub's 
 - Backend regression workflows now pass `github.event.pull_request.head.sha` as `PINPOSY_PR_HEAD_SHA`.
 - The chronology test resolves that SHA to its short Git hash for the self-commit exemption; push runs fall back to checked-out HEAD.
 - This preserves the guard for all prior commits while allowing the newest PR commit to be recorded by the next documentation update.
+
+## Synthetic merge commit chronology fix — 2026-11-26
+
+The PR-head environment fix correctly identified the branch head, but GitHub's merge checkout also places a synthetic merge commit in `git log`. The chronology guard then required a row for that synthetic commit.
+
+The guard now exempts both the checked-out merge HEAD and the actual PR head; all earlier commits still require a receipt. Push runs use HEAD as their only exemption. This is a narrow correction to the self-reference rule, not a weakening of prior-commit coverage.
