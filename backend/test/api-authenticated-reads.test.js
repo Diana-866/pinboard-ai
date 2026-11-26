@@ -31,6 +31,21 @@ const PIN_ID = "55555555-5555-4555-8555-555555555555";
 const SCHEDULE_ID = "66666666-6666-4666-8666-666666666666";
 const PIN_ACCOUNT_ID = "77777777-7777-4777-8777-777777777777";
 
+async function getAvailablePort() {
+  const server = http.createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const port = address && typeof address === "object" ? address.port : null;
+  await new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  });
+  if (!Number.isInteger(port) || port < 1) throw new Error("could not reserve a loopback port");
+  return port;
+}
+
 function sessionToken(tokenVersion = 0) {
   return signSessionToken({ id: USER_ID, token_version: tokenVersion }, SECRET);
 }
@@ -55,7 +70,7 @@ function activatePaidPlan(backend, { credits = 500, plan = "pro" } = {}) {
 async function startBackend({ tokenVersion = 0, extraEnv = {} } = {}) {
   const db = startFakePostgrest();
   const dbUrl = await db.listen();
-  const port = 36000 + Math.floor(Math.random() * 2000);
+  const port = await getAvailablePort();
 
   // supabase-js uses one path per table, so a route must look at the query to tell the profile
   // read, the token-version read and the entitlement read apart.
