@@ -18,7 +18,7 @@ export PINPOSY_ALLOW_DISPOSABLE_DB_TESTS=1
 created=0
 cleanup() {
   if [[ "$created" == "1" ]]; then
-    dropdb --if-exists --force -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres "$PGDATABASE"
+    dropdb --if-exists --force --maintenance-db=postgres -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PGDATABASE"
     created=0
   fi
 }
@@ -30,7 +30,7 @@ existing="$(psql -X -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -At -v ON
 if [[ "$existing" == "1" ]]; then echo "Refusing: disposable database already exists." >&2; exit 2; fi
 
 # Clone the migrated SQL fixture, never the shared fixture itself.
-createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -T pinposy_test "$PGDATABASE"
+createdb --maintenance-db=postgres -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -T pinposy_test "$PGDATABASE"
 created=1
 
 scripts=(
