@@ -580,6 +580,7 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-board-reassignment.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pinterest-failed-schedule-retry-identity.integration.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f backend/test/pin-regeneration-journal.integration.sql
+      # The harness clones pinposy_test into a run-unique database and drops only that clone.
       - name: Run isolated PostgreSQL concurrency suite
         env:
           PGHOST: 127.0.0.1
