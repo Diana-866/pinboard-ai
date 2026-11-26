@@ -46,3 +46,14 @@ The first real CI attempt exposed unrelated release-gate defects as well as the 
 - Added a focused test for the port allocator.
 - Final expected backend inventory after this addition: **1,562 declarations**; `api-authenticated-reads.test.js`: **117`.
 - The test-file change retriggers CI on the latest PR head. Await those results; no runtime PASS is claimed yet.
+
+## PostgreSQL gate correction — 2026-11-26
+
+The atomicity workflow reached the SQL integration suite after the role-bootstrap fix and exposed a real workflow drift: it replayed migrations only through 161, while `backend/test/postgres-integration.sql` expects the subscription-activation outbox behavior restored by migration 162. The full current chain is 010–167.
+
+- Added migrations 162–167 to the disposable atomic-payment workflow.
+- Updated `scripts/verify-integration.ps1` from 010–161 (152 migrations) to 010–167 (158 migrations), matching `scripts/verify.sh`.
+- Updated `postgres-integration-runner-contract.test.js` to require the complete 010–167 chain in both CI and the Windows runner.
+- This corrects a false failure caused by testing an obsolete schema snapshot; the SQL suite must still pass on the new full-chain rerun.
+
+Current CI for the latest code is pending/running; no full PostgreSQL or backend PASS is claimed.
