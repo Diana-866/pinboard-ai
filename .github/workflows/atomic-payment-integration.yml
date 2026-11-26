@@ -105,7 +105,21 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
-          -- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.
+          -- The GitHub service container is vanilla PostgreSQL, not Supabase.
+          -- Create only the minimal NOLOGIN roles required by this disposable migration fixture.
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+              CREATE ROLE service_role NOLOGIN;
+            END IF;
+          END
+          $roles$;
           create table public.users (
             id uuid primary key default gen_random_uuid(),
             email text not null,
