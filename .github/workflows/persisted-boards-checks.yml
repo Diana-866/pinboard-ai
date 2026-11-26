@@ -47,6 +47,8 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    env:
+      PINPOSY_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     defaults:
       run:
         working-directory: backend
