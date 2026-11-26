@@ -127,9 +127,9 @@ test('runner logs migration progress and inspects the preferred-language constra
   assert.match(runner, /Diagnostic: database and public\.users constraints immediately before migration 018:/);
   assert.match(runner, /users_preferred_language_check/);
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
-  assert.match(runner, /\$migrations\.Count -ne 152/);
-  assert.match(runner, /Expected 152 active migrations 010-161/);
-  assert.match(runner, /Applying 152 migrations 010-161/);
+  assert.match(runner, /\$migrations\.Count -ne 158/);
+  assert.match(runner, /Expected 158 active migrations 010-167/);
+  assert.match(runner, /Applying 158 migrations 010-167/);
   assert.match(runner, /\$sqlTests\.Count -ne 49/);
 });
 
@@ -189,11 +189,11 @@ test('durable account deletion queue test expects the Storage manifest guard add
   assert.ok(stageGuards.indexOf("raise exception 'account deletion Storage manifest is required';") < stageGuards.indexOf('update public.account_deletion_jobs'));
 });
 
-test('CI migration list remains the complete contiguous 010-161 chain', () => {
+test('CI migration list remains the complete contiguous 010-167 chain', () => {
   const prefixes = [...workflow.matchAll(/db\/migrations\/(\d{3})_[A-Za-z0-9._-]+\.sql/g)]
     .map((match) => Number(match[1]));
-  assert.equal(prefixes.length, 152);
-  assert.deepEqual(prefixes, Array.from({ length: 152 }, (_, index) => index + 10));
+  assert.equal(prefixes.length, 158);
+  assert.deepEqual(prefixes, Array.from({ length: 158 }, (_, index) => index + 10));
 });
 
 test('upgrade fixture preserves every canonical baseline column except fields introduced by later migrations', () => {
