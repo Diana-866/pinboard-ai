@@ -342,3 +342,5 @@ CI's bidirectional chronology guard exposed code/test/workflow commits after the
 |---|---|
 | `8ef8d43c` | Permit the GitHub Actions Docker bridge address only when PGHOST is loopback and PGDATABASE exactly matches this run's unique disposable database. |
 | `074331fd` | Add contract assertions for the narrowly scoped CI bridge exception. |
+
+| `24272621` | Require the release-line chronology receipt ledger in the documentation-integrity test. |
