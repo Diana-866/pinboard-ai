@@ -966,6 +966,7 @@ begin
   delete from public.email_outbox where subscription_id in (select id from public.subscriptions where user_id = v_user::text);
   delete from public.subscriptions where user_id = v_user::text;
   delete from public.projects where id = v_project;
+  delete from public.auth_tokens where user_id = v_user::text;
   delete from public.users where id = v_user;
 end;
 $$;
