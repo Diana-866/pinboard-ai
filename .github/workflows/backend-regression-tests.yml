@@ -1,0 +1,66 @@
+name: Backend regression tests
+
+on:
+  push:
+    branches:
+      - ci/backend-regression-tests
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Record runtime
+        run: |
+          node --version
+          npm --version
+
+      - name: Install backend dependencies
+        run: |
+          set -o pipefail
+          npm ci --prefix backend --no-audit --no-fund 2>&1 | tee ci-install.log
+
+      - name: Verify installed dependencies
+        run: |
+          set -o pipefail
+          npm ls --prefix backend --depth=0 2>&1 | tee ci-dependencies.log
+
+      - name: Test Prodamus subscription payment flow
+        run: |
+          set -o pipefail
+          node test/billing-flow.js 2>&1 | tee ci-billing-flow.log
+
+      - name: Test credit purchase and duplicate webhook protection
+        run: |
+          set -o pipefail
+          node test/credits-flow.js 2>&1 | tee ci-credits-flow.log
+
+      - name: Test email verification flow
+        run: |
+          set -o pipefail
+          node test/e2e-email-verify.js 2>&1 | tee ci-email-verification.log
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-regression-diagnostics
+          path: ci-*.log
+          if-no-files-found: ignore
+          retention-days: 7
