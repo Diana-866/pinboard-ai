@@ -57,3 +57,9 @@ The atomicity workflow reached the SQL integration suite after the role-bootstra
 - This corrects a false failure caused by testing an obsolete schema snapshot; the SQL suite must still pass on the new full-chain rerun.
 
 Current CI for the latest code is pending/running; no full PostgreSQL or backend PASS is claimed.
+
+## Disposable concurrency harness fix — 2026-11-26
+
+The first full-chain PostgreSQL rerun reached the ten-script concurrency suite, but the harness failed before creating its disposable clone: PostgreSQL 18's `createdb` rejects the psql-style `-d postgres` option. Replaced it with the documented `--maintenance-db=postgres` for both `createdb` and `dropdb`, and strengthened the existing harness contract test to reject the unsupported option.
+
+The failing run did not create or modify the concurrency database; it exited before clone creation. A new CI run is required to verify the corrected harness and the complete SQL suite.
