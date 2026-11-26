@@ -180,7 +180,14 @@ test("every change of this session has a row, and every row points at a reason",
   const rows = chronologyRows(audit);
   assert.ok(rows.length > 20, `expected the chronology appendix, found ${rows.length} rows`);
   const byHash = new Map(rows.map((row) => [row.hash, row]));
-  const head = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+  // PR workflows check out GitHub's synthetic merge commit; use the actual PR head for the
+  // newest-commit self-reference exemption so the chronology remains bidirectional.
+  const requestedHead = process.env.PINPOSY_PR_HEAD_SHA;
+  const head = execFileSync(
+    "git",
+    ["rev-parse", "--short", requestedHead || "HEAD"],
+    { cwd: ROOT, encoding: "utf8" }
+  ).trim();
 
   // Direction one: a commit that the appendix does not list.
   const missing = [];
