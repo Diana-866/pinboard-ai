@@ -63,3 +63,11 @@ Current CI for the latest code is pending/running; no full PostgreSQL or backend
 The first full-chain PostgreSQL rerun reached the ten-script concurrency suite, but the harness failed before creating its disposable clone: PostgreSQL 18's `createdb` rejects the psql-style `-d postgres` option. Replaced it with the documented `--maintenance-db=postgres` for both `createdb` and `dropdb`, and strengthened the existing harness contract test to reject the unsupported option.
 
 The failing run did not create or modify the concurrency database; it exited before clone creation. A new CI run is required to verify the corrected harness and the complete SQL suite.
+
+## CI disposable PostgreSQL address boundary — 2026-11-26
+
+After the full 010–167 chain and SQL integration passed, the concurrency suite correctly stopped at its safety preflight: the GitHub service container reports its server address as `172.18.0.2/32`, even though the client connects through loopback `127.0.0.1`.
+
+The shared guard now permits a private 172.16/12 bridge address only when all of these hold: GitHub Actions is active, the client host is loopback, explicit disposable opt-in is set, run ID/attempt are numeric, and the database name exactly matches `pinposy_verify_<run>_<attempt>`. Arbitrary remote addresses remain rejected. Added contract assertions for this exception.
+
+The rerun must confirm this constrained CI exception and the corrected `createdb --maintenance-db=postgres` harness. No production or user database was involved.
