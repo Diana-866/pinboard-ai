@@ -71,3 +71,13 @@ After the full 010–167 chain and SQL integration passed, the concurrency suite
 The shared guard now permits a private 172.16/12 bridge address only when all of these hold: GitHub Actions is active, the client host is loopback, explicit disposable opt-in is set, run ID/attempt are numeric, and the database name exactly matches `pinposy_verify_<run>_<attempt>`. Arbitrary remote addresses remain rejected. Added contract assertions for this exception.
 
 The rerun must confirm this constrained CI exception and the corrected `createdb --maintenance-db=postgres` harness. No production or user database was involved.
+
+## Concurrency fixture isolation — 2026-11-26
+
+The next disposable PostgreSQL run passed the Docker-bridge safety preflight and database clone creation, then stopped in `auth-recovery-concurrency.sh`: its fixed all-`a` token hash collided with a row left by the preceding SQL integration fixture (`auth_tokens.token_hash` is globally unique).
+
+- The concurrency test now derives a deterministic SHA-256 token hash from its unique user ID.
+- The SQL integration fixture explicitly deletes that user's `auth_tokens` before deleting the user, preventing orphaned fixture rows.
+- Added contract assertions for unique token generation and cleanup order.
+
+The latest run must confirm the full concurrency suite after these fixture-isolation changes.
