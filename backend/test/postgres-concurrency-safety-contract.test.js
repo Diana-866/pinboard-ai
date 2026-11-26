@@ -104,4 +104,11 @@ test('CI workflow routes concurrency tests through a unique disposable clone', (
   assert.doesNotMatch(runner, /\bcreatedb[^\n]*\s-d\s/);
   assert.ok(runner.includes('trap cleanup EXIT'));
   assert.ok(runner.includes('127.0.0.1|localhost|::1'));
+  const authRecovery = read('backend/test/auth-recovery-concurrency.sh');
+  const integration = read('backend/test/postgres-integration.sql');
+  assert.match(authRecovery, /sha256sum/);
+  assert.ok(authRecovery.includes("delete from public.auth_tokens where user_id = '$USER_ID';"));
+  const tokenCleanup = integration.indexOf("delete from public.auth_tokens where user_id = v_user::text;");
+  const userCleanup = integration.indexOf("delete from public.users where id = v_user;");
+  assert.ok(tokenCleanup >= 0 && tokenCleanup < userCleanup, 'integration fixture must delete auth tokens before deleting its user');
 });
