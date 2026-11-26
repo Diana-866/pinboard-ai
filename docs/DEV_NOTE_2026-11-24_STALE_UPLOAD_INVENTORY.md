@@ -81,3 +81,11 @@ The next disposable PostgreSQL run passed the Docker-bridge safety preflight and
 - Added contract assertions for unique token generation and cleanup order.
 
 The latest run must confirm the full concurrency suite after these fixture-isolation changes.
+
+## PR-head chronology boundary — 2026-11-26
+
+Full-history CI revealed that the documentation chronology test ran on GitHub's synthetic PR merge commit, so its `HEAD` exemption did not recognize the actual PR head. This forced a code commit to be documented before the test could run, causing an avoidable one-commit lag.
+
+- Backend regression workflows now pass `github.event.pull_request.head.sha` as `PINPOSY_PR_HEAD_SHA`.
+- The chronology test resolves that SHA to its short Git hash for the self-commit exemption; push runs fall back to checked-out HEAD.
+- This preserves the guard for all prior commits while allowing the newest PR commit to be recorded by the next documentation update.
