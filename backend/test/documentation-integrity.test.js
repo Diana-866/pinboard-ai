@@ -180,14 +180,14 @@ test("every change of this session has a row, and every row points at a reason",
   const rows = chronologyRows(audit);
   assert.ok(rows.length > 20, `expected the chronology appendix, found ${rows.length} rows`);
   const byHash = new Map(rows.map((row) => [row.hash, row]));
-  // PR workflows check out GitHub's synthetic merge commit; use the actual PR head for the
-  // newest-commit self-reference exemption so the chronology remains bidirectional.
+  // PR workflows check out a synthetic merge commit. Exempt both that merge HEAD and
+  // the actual PR head: neither can cite itself, while all earlier commits remain required.
+  const checkedOutHead = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   const requestedHead = process.env.PINPOSY_PR_HEAD_SHA;
-  const head = execFileSync(
-    "git",
-    ["rev-parse", "--short", requestedHead || "HEAD"],
-    { cwd: ROOT, encoding: "utf8" }
-  ).trim();
+  const requestedHeadShort = requestedHead
+    ? execFileSync("git", ["rev-parse", "--short", requestedHead], { cwd: ROOT, encoding: "utf8" }).trim()
+    : checkedOutHead;
+  const exemptHeads = new Set([checkedOutHead, requestedHeadShort]);
 
   // Direction one: a commit that the appendix does not list.
   const missing = [];
@@ -218,7 +218,7 @@ test("every change of this session has a row, and every row points at a reason",
     // Коммит, названный в плане 14 дней, тоже имеет причину: план — единственный файл записей.
     if (new RegExp("`" + hash + "`").test(planText)) continue;
     // The newest commit cannot cite itself, so the record catches up on the next one.
-    if (hash === head) continue;
+    if (exemptHeads.has(hash)) continue;
     missing.push(`${hash} ${subject}`);
   }
   assert.deepEqual(missing, [], `commits with no row in the chronology:\n${missing.join("\n")}`);
