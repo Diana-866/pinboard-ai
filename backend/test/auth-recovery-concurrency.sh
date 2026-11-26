@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/assert-disposable-postgres.sh"
 
 USER_ID="$("${psql_base[@]}" -At -c "insert into public.users(email, password_hash, email_verified) values ('auth-recovery-race-' || gen_random_uuid() || '@example.invalid', 'old-hash', false) returning id")"
-TOKEN_HASH="$(printf '%064d' 0 | tr '0' 'a')"
+TOKEN_HASH="$(printf '%s' "$USER_ID" | sha256sum | cut -d ' ' -f1)"
 
 cleanup() {
   stop_test_children
