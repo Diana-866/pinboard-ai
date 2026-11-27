@@ -190,9 +190,6 @@ async function sendTransactionalHttpApi({ to, subject, text, html, messageId }, 
   const config = getHttpApiMailConfig(env);
   if (!config) throw new Error("Transactional HTTP mail is not configured");
   const recipient = parseSingleRecipient(to);
-  const idempotenceKey = typeof messageId === "string" && messageId.trim()
-    ? crypto.createHash("sha256").update(messageId).digest("hex")
-    : crypto.randomUUID();
   const message = {
     recipients: [{ email: recipient }],
     from_email: config.from.email,
@@ -202,10 +199,16 @@ async function sendTransactionalHttpApi({ to, subject, text, html, messageId }, 
       ...(typeof text === "string" && text ? { plaintext: text } : {}),
       ...(typeof html === "string" && html ? { html } : {}),
     },
-    idempotence_key: idempotenceKey,
     track_links: 0,
     track_read: 0,
   };
+  // Unisender Go may require support to enable idempotence_key for the account.
+  // Send it only after the owner confirms that feature is enabled.
+  if (String(env.MAIL_HTTP_API_IDEMPOTENCE_ENABLED || "").toLowerCase() === "true") {
+    message.idempotence_key = typeof messageId === "string" && messageId.trim()
+      ? crypto.createHash("sha256").update(messageId).digest("hex")
+      : crypto.randomUUID();
+  }
   if (!message.body.plaintext && !message.body.html) {
     throw new Error("Transactional HTTP mail requires a text or HTML body");
   }
