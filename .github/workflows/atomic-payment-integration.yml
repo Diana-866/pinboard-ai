@@ -100,13 +100,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-      - name: Prepare disposable schema
+      - name: Provision minimal Supabase roles for migration fixture
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
-          -- Minimal Supabase roles/functions used by migrations and security grants.
-          -- This disposable CI service is a plain PostgreSQL image, not a Supabase cluster.
+          -- The workflow uses plain PostgreSQL; create the Supabase roles expected by migrations.
           create role anon nologin;
           create role authenticated nologin;
           create role service_role nologin bypassrls;
@@ -116,10 +115,15 @@ jobs:
           create role authenticator nologin;
           grant anon, authenticated, service_role to authenticator;
           create schema if not exists auth;
-          create or replace function auth.uid() returns uuid language sql stable as $ select null::uuid $;
+          create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
           create extension if not exists pgcrypto;
           create extension if not exists "uuid-ossp";
-
+          SQL
+      - name: Prepare disposable schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
           -- CI upgrade-compatibility fixture.
           create table public.users (
             id uuid primary key default gen_random_uuid(),
