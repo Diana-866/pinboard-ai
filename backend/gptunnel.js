@@ -290,14 +290,18 @@ function getImageAspectRatios(params) {
     .filter((value) => typeof value === "string" && /^[0-9]{1,2}:[0-9]{1,2}$/.test(value));
 }
 
-function chooseFallbackImageModel(models, requestedModel) {
+function chooseFallbackImageModel(models, requestedModel, requestedAspectRatio) {
   const list = Array.isArray(models) ? models : [];
   return list
-    .filter((m) => m && typeof m.id === "string"
-      && m.id !== requestedModel
-      && Number(m.price) > 0
-      && !(m.deprecated === true)
-      && modelHasParam(m.params, "aspect_ratio"))
+    .filter((m) => {
+      if (!m || typeof m.id !== "string" || m.id === requestedModel ||
+          !Number.isFinite(Number(m.price)) || Number(m.price) <= 0 ||
+          m.deprecated === true || !modelHasParam(m.params, "aspect_ratio")) return false;
+      const ratios = Array.isArray(m.aspect_ratios) ? m.aspect_ratios : getImageAspectRatios(m.params);
+      // A documented list that excludes the requested ratio is a hard mismatch.
+      // An empty list means the provider omitted options, not that the ratio is unsupported.
+      return !requestedAspectRatio || ratios.length === 0 || ratios.includes(requestedAspectRatio);
+    })
     .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
 }
 
