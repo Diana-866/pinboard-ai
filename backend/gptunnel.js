@@ -187,9 +187,47 @@ function normalizeMediaQuote(data) {
  * безымянный Error, и причину (нет модели, нет баланса, изменённый формат) нельзя было
  * назвать без доступа к внутренностям ответа.
  */
+function logGPTunnelHttpFailure(status, data) {
+  if (!Number.isInteger(status) || status < 400 || status > 599) return;
+  let code;
+  let rawMessage;
+  try {
+    if (data && typeof data === "object") {
+      const nested = data.error && typeof data.error === "object" ? data.error : null;
+      const candidate = data.code !== undefined ? data.code : nested && nested.code;
+      if (Number.isSafeInteger(candidate) && candidate >= 0 && candidate <= 999999) code = candidate;
+      else if (typeof candidate === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(candidate)) code = candidate;
+      rawMessage = typeof data.message === "string" ? data.message
+        : typeof data.error_description === "string" ? data.error_description
+          : nested && typeof nested.message === "string" ? nested.message
+            : typeof data.error === "string" ? data.error : undefined;
+    } else if (typeof data === "string") {
+      rawMessage = data;
+    }
+  } catch {
+    // Never serialize an untrusted provider envelope.
+  }
+  const record = { level: "error", event: "gptunnel.provider_response_failed", provider_status: status };
+  if (code !== undefined) record.provider_code = code;
+  if (typeof rawMessage === "string" && rawMessage.trim()) {
+    record.provider_message = rawMessage
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+      .replace(/\b(access_token|refresh_token|client_secret|api_key|token|authorization)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1=[redacted]")
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted]")
+      .replace(/\bgpt_[A-Za-z0-9_-]{8,}\b/gi, "[redacted]")
+      .slice(0, 240);
+  }
+  console.error(JSON.stringify(record));
+}
+
 function withProviderStatus(error) {
   if (error && error.isAxiosError && Number.isInteger(error.response && error.response.status)) {
     error.providerStatus = error.response.status;
+    if (!error.gptunnelDiagnosticLogged) {
+      logGPTunnelHttpFailure(error.response.status, error.response.data);
+      error.gptunnelDiagnosticLogged = true;
+    }
   }
   return error;
 }
@@ -225,6 +263,33 @@ async function listModels() {
  * (code 15 / HTTP 410), а имена и цены обновляются. Выбор замены вынесен в чистую
  * функцию: она не ходит в сеть и легко проверяется тестом.
  */
+function modelParamEntries(params) {
+  if (Array.isArray(params)) {
+    return params.filter((entry) => entry && typeof entry.key === "string");
+  }
+  if (params && typeof params === "object") {
+    return Object.entries(params).map(([key, value]) => ({
+      key,
+      ...(value && typeof value === "object" ? value : {}),
+    }));
+  }
+  return [];
+}
+
+function modelHasParam(params, key) {
+  if (Array.isArray(params) && params.includes(key)) return true;
+  return modelParamEntries(params).some((entry) => entry.key === key);
+}
+
+function getImageAspectRatios(params) {
+  const parameter = modelParamEntries(params).find((entry) => entry.key === "aspect_ratio");
+  const options = parameter && (parameter.options || parameter.values || parameter.enum);
+  if (!Array.isArray(options)) return [];
+  return options
+    .map((option) => typeof option === "string" ? option : option && option.value)
+    .filter((value) => typeof value === "string" && /^[0-9]{1,2}:[0-9]{1,2}$/.test(value));
+}
+
 function chooseFallbackImageModel(models, requestedModel) {
   const list = Array.isArray(models) ? models : [];
   return list
@@ -232,8 +297,7 @@ function chooseFallbackImageModel(models, requestedModel) {
       && m.id !== requestedModel
       && Number(m.price) > 0
       && !(m.deprecated === true)
-      && (Array.isArray(m.params) ? m.params.includes("aspect_ratio")
-        : m.params && Object.prototype.hasOwnProperty.call(m.params, "aspect_ratio")))
+      && modelHasParam(m.params, "aspect_ratio"))
     .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
 }
 
@@ -245,7 +309,8 @@ async function listImageModelsFull() {
     id: m.id,
     price: Number(m.price),
     deprecated: m.deprecated === true,
-    params: m.params && typeof m.params === "object" ? Object.keys(m.params) : [],
+    params: modelParamEntries(m.params).map((parameter) => parameter.key),
+    aspect_ratios: getImageAspectRatios(m.params),
   }));
 }
 
@@ -327,4 +392,4 @@ async function generateImage(prompt, model = "flux-schnell", aspectRatio = "2:3"
   return waitForImageTask(taskId, callbacks);
 }
 
-module.exports = { withProviderStatus, chooseFallbackImageModel, listImageModelsFull, providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
+module.exports = { logGPTunnelHttpFailure, withProviderStatus, modelParamEntries, modelHasParam, getImageAspectRatios, chooseFallbackImageModel, listImageModelsFull, providerRequestConfig, resolveApiBase, DEFAULT_API_BASE, providerTaskError, generateText, generateTextWithUsage, quoteImageTask, normalizeMediaQuote, generateImage, waitForImageTask, listModels, checkImage, buildImageTaskPayload, imageTaskResult };
