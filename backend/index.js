@@ -2279,7 +2279,17 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
     }
     const publicMessage = e && e.code === "GPTUNNEL_TEXT_COST_MISSING"
       ? "GPTunnel временно не подтвердил стоимость текстовой генерации. Создание изображений остановлено; попробуйте позже."
-      : undefined;
+      : e && (e.providerStatus === 400 || e.providerStatus === 422)
+        ? "Провайдер отклонил параметры изображения. Проверьте формат и модель; если запрос не дошёл до генерации, кредиты возвращаются автоматически."
+        : e && (e.providerStatus === 410 || e.providerErrorCode === 15)
+          ? "Выбранная модель больше недоступна у провайдера. Обновите список моделей и выберите другую."
+          : e && e.providerStatus === 429
+            ? "Провайдер изображений перегружен или ограничил запросы. Попробуйте позже."
+            : e && Number.isInteger(e.providerStatus) && e.providerStatus >= 500
+              ? "Провайдер изображений временно недоступен. Повторите попытку позже."
+              : e && e.providerStatus
+                ? "Провайдер изображений отклонил запрос. Попробуйте выбрать другую модель или формат."
+                : undefined;
     // The database has already returned the reservation when the provider was never asked for an
     // image; without this the customer cannot tell a free failure from a charged one.
     handleError(res, markGenerationFailure(e, { providerStarted: providerGenerationStarted }), publicMessage);
