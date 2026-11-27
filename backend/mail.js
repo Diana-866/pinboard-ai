@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const { logWarning, logError } = require("./safeLogger");
 // Почтовый модуль админки: чтение входящих (IMAP) и ответы (SMTP).
 // Включается переменными окружения:
