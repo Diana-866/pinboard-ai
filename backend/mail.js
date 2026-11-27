@@ -109,9 +109,9 @@ function mailConfigured() {
   return !!(process.env.MAIL_IMAP_HOST && auth.user && auth.pass);
 }
 
-function transactionalMailConfigured() {
-  const auth = getTransactionalSmtpAuth();
-  return !!(process.env.MAIL_SMTP_HOST && auth.user && auth.pass);
+function transactionalMailConfigured(env = process.env) {
+  const auth = getTransactionalSmtpAuth(env);
+  return !!(env.MAIL_SMTP_HOST && auth.user && auth.pass);
 }
 
 const MAIL_HTTP_API_DEFAULT_URL = "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json";
@@ -186,8 +186,8 @@ function parseSingleRecipient(to) {
   return email;
 }
 
-async function sendTransactionalHttpApi({ to, subject, text, html, messageId }) {
-  const config = getHttpApiMailConfig();
+async function sendTransactionalHttpApi({ to, subject, text, html, messageId }, { env = process.env, axiosClient } = {}) {
+  const config = getHttpApiMailConfig(env);
   if (!config) throw new Error("Transactional HTTP mail is not configured");
   const recipient = parseSingleRecipient(to);
   const idempotenceKey = typeof messageId === "string" && messageId.trim()
@@ -210,7 +210,7 @@ async function sendTransactionalHttpApi({ to, subject, text, html, messageId }) 
     throw new Error("Transactional HTTP mail requires a text or HTML body");
   }
 
-  const axios = require("axios");
+  const axios = axiosClient || require("axios");
   let response;
   try {
     response = await axios.post(config.url, { message }, {
@@ -244,9 +244,9 @@ async function sendTransactionalHttpApi({ to, subject, text, html, messageId }) 
   return { ok: true };
 }
 
-async function sendMailViaHttpApi(message, { needThrow = true } = {}) {
+async function sendMailViaHttpApi(message, { needThrow = true, env = process.env, axiosClient } = {}) {
   try {
-    await sendTransactionalHttpApi(message);
+    await sendTransactionalHttpApi(message, { env, axiosClient });
     return { ok: true };
   } catch (error) {
     logError("mail.http_api_failed", error, Number.isInteger(error && error.providerStatus) ? error.providerStatus : 503);
@@ -413,7 +413,7 @@ function buildReplyTransportOptions(config) {
 function buildTransactionalTransportOptions() {
   const port = mailPort(process.env.MAIL_SMTP_PORT, 465);
   return {
-    host: process.env.MAIL_SMTP_HOST,
+    host: env.MAIL_SMTP_HOST,
     port,
     ...smtpTlsPolicy(port),
     auth: getTransactionalSmtpAuth(),
@@ -423,10 +423,10 @@ function buildTransactionalTransportOptions() {
 
 // Универсальная отправка письма (используется биллингом: «Тариф активирован»).
 // Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
-async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
+async function sendMail({ to, subject, text, html, messageId }, { needThrow = true, env = process.env, httpApiClient } = {}) {
   const message = { to, subject, text, html, messageId };
-  if (!transactionalMailConfigured()) {
-    if (transactionalHttpMailConfigured()) return sendMailViaHttpApi(message, { needThrow });
+  if (!transactionalMailConfigured(env)) {
+    if (transactionalHttpMailConfigured(env)) return sendMailViaHttpApi(message, { needThrow, env, axiosClient: httpApiClient });
     if (!needThrow) {
       logWarning("mail.event_002");
       return { ok: false, skipped: true };
@@ -436,10 +436,10 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
   }
 
   const nodemailer = require("nodemailer");
-  const transporter = nodemailer.createTransport(buildTransactionalTransportOptions());
+  const transporter = nodemailer.createTransport(buildTransactionalTransportOptions(env));
   try {
     await transporter.sendMail({
-      from: process.env.MAIL_FROM || getTransactionalSmtpAuth().user,
+      from: env.MAIL_FROM || getTransactionalSmtpAuth(env).user,
       to,
       subject,
       text,
@@ -448,9 +448,9 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
     });
     return { ok: true };
   } catch (error) {
-    if (transactionalHttpMailConfigured() && isSmtpConnectFailure(error)) {
+    if (transactionalHttpMailConfigured(env) && isSmtpConnectFailure(error)) {
       logWarning("mail.smtp_http_fallback", error, 503);
-      return sendMailViaHttpApi(message, { needThrow });
+      return sendMailViaHttpApi(message, { needThrow, env, axiosClient: httpApiClient });
     }
     if (!needThrow) {
       logError("mail.event_001");
