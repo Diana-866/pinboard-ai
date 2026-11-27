@@ -295,6 +295,7 @@ const { generateBoards } = require("./boards");
 const { generatePins } = require("./pins");
 const { markGenerationFailure, generationSaveFailedError } = require("./generationFailure");
 const { calculateGenerationReservation, calculateQuotedGenerationPricing, ceilCredits } = require("./generationPricing");
+const { getAvailableImageModels } = require("./generationModelCatalog");
 const { uploadPinImage, rehostImage, deletePinImageIfUnreferenced } = require("./storage");
 const { reconcileStalePinImageUploads, quarantineStalePinImageUploads, inspectQuarantinedPinImageObjects, inspectBlockedPinImageRetentionQueue, retryFailedPinImageDeletions, processPendingPinImageRetentionQueue } = require("./pinImageLifecycle");
 const { validateDevTopupRequest } = require("./devTopup");
@@ -1784,20 +1785,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
 app.get("/generation/models", requireAuth, async (req, res) => {
   try {
     const models = await require("./gptunnel").listImageModelsFull();
-    const available = (Array.isArray(models) ? models : [])
-      .filter((model) => model && typeof model.id === "string"
-        && model.id.trim()
-        && Number.isFinite(Number(model.price))
-        && Number(model.price) > 0
-        && model.deprecated !== true
-        && Array.isArray(model.params)
-        && model.params.includes("aspect_ratio"))
-      .map((model) => ({
-        id: model.id,
-        providerPrice: Number(model.price),
-        creditsPerImage: ceilCredits(Number(model.price) * MARKUP),
-      }))
-      .sort((a, b) => a.creditsPerImage - b.creditsPerImage || a.providerPrice - b.providerPrice || a.id.localeCompare(b.id));
+    const available = getAvailableImageModels(models, MARKUP, ceilCredits);
     res.json({ models: available });
   } catch (error) {
     logError("index.generation_models_unavailable");
