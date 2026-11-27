@@ -1778,6 +1778,36 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
 
 // Read-only recovery endpoint: exposes only the authenticated user's request status
 // and completed pin fields. Provider prompts, task IDs, raw errors and tokens stay private.
+// Public-to-authenticated-user model catalogue. Return only image models that
+// support the aspect-ratio parameter used by pin generation; never expose provider
+// credentials or raw provider responses.
+app.get("/generation/models", requireAuth, async (req, res) => {
+  try {
+    const models = await require("./gptunnel").listImageModelsFull();
+    const available = (Array.isArray(models) ? models : [])
+      .filter((model) => model && typeof model.id === "string"
+        && model.id.trim()
+        && Number.isFinite(Number(model.price))
+        && Number(model.price) > 0
+        && model.deprecated !== true
+        && Array.isArray(model.params)
+        && model.params.includes("aspect_ratio"))
+      .map((model) => ({
+        id: model.id,
+        providerPrice: Number(model.price),
+        creditsPerImage: ceilCredits(Number(model.price) * MARKUP),
+      }))
+      .sort((a, b) => a.creditsPerImage - b.creditsPerImage || a.providerPrice - b.providerPrice || a.id.localeCompare(b.id));
+    res.json({ models: available });
+  } catch (error) {
+    logError("index.generation_models_unavailable");
+    res.status(503).json({
+      error: "Список моделей изображений временно недоступен. Попробуйте позже.",
+      code: "generation_models_unavailable",
+    });
+  }
+});
+
 app.get("/generation/requests/:key", requireAuth, async (req, res) => {
   try {
     const idempotencyKey = String(req.params.key || "");
