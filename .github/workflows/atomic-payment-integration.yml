@@ -119,6 +119,25 @@ jobs:
           create extension if not exists pgcrypto;
           create extension if not exists "uuid-ossp";
           SQL
+      - name: Provision Supabase roles for disposable schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin bypassrls;
+            end if;
+          end;
+          $roles$;
+          SQL
       - name: Prepare disposable schema
         env:
           PGPASSWORD: postgres
