@@ -127,7 +127,7 @@ test('runner logs migration progress and inspects the preferred-language constra
   assert.match(runner, /Diagnostic: database and public\.users constraints immediately before migration 018:/);
   assert.match(runner, /users_preferred_language_check/);
   assert.match(runner, /pg_get_constraintdef\(c\.oid\)/);
-  assert.match(runner, /\$migrations\.Count -ne 152/);
+  assert.match(runner, /\$migrations\.Count -ne 158/);
   assert.match(runner, /Expected 158 active migrations 010-167/);
   assert.match(runner, /Applying 158 migrations 010-167/);
   assert.match(runner, /\$sqlTests\.Count -ne 49/);
