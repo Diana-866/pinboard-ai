@@ -1,15 +1,11 @@
-# Self-hosted Supabase для одного VPS (AdminVPS Start: 4 ядра, 8 ГБ, 80 ГБ).
+# Self-hosted Supabase для AdminVPS Start: Россия, Ubuntu 24.04, 4 vCPU, 8 ГБ RAM, 80 ГБ NVMe.
 #
-# Минимальный набор: db, kong (шлюз), rest (PostgREST), auth (GoTrue), storage (Storage API).
-# Отключено как неиспользуемое PinPosy: studio (веб-админка), analytics/logflare, vector,
-# realtime, imgproxy (преобразование картинок выключено в самом storage), functions, pooler.
+# Минимальный набор для PinPosy: db, Kong, PostgREST, GoTrue и Storage.
+# Studio, Analytics, Realtime, imgproxy, Edge Functions и pooler отключены для экономии памяти.
+# Supabase и PinPosy соединяются через заранее созданную внешнюю Docker-сеть pinposy-internal.
 #
-# Запуск из каталога deploy/supabase: docker compose up -d
-# Перед запуском скопируйте .env.example в .env и заполните.
-#
-# Приложение ходит через Kong на порт 8000: SUPABASE_URL=http://supabase-kong:8000/rest/v1
-# Порт наружу не открывается (только ports для отладки закомментированы) — доступ только
-# по внутренней сети compose (deploy/docker-compose.yml подключает эту сеть).
+# SUPABASE_URL для backend: http://supabase-kong:8000 (без /rest/v1).
+# Kong и PostgreSQL привязаны только к 127.0.0.1 на хосте; наружу доступны только Caddy 80/443.
 
 name: pinposy-supabase
 
@@ -23,16 +19,28 @@ services:
   db:
     image: supabase/postgres:15.8.1.041
     restart: unless-stopped
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - max_connections=100
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./volumes/db/_volumes_settings.sql:/etc/postgresql/_volumes_settings.sql:ro
-      - ./volumes/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - ./volumes/db/logs:/var/log/postgresql
-    # Память настроена под 8 ГБ машины: shared_buffers 1 ГБ, work_mem 16 МБ.
-    # Родной compose по умолчанию рассчитан на крупные машины и съедает память.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supabase_admin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - supabase_internal
     logging: *logging
 
   kong:
@@ -49,15 +57,22 @@ services:
       KONG_ADMIN_LISTEN: "off"
     volumes:
       - ./kong.yml:/var/lib/kong/kong.yml:ro
-    # 127.0.0.1: временно, чтобы проверить `curl http://127.0.0.1:8000/rest/v1/` c сервера.
-    # После проверки строка закомментируется: наружу Kong не нужен.
+    # Только локальная проверка с VPS; не публикуем Supabase API в интернет.
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
-      - db
-      - rest
-      - auth
-      - storage
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      auth:
+        condition: service_started
+      storage:
+        condition: service_started
+    networks:
+      supabase_internal:
+        aliases:
+          - supabase-kong
     logging: *logging
 
   rest:
@@ -71,7 +86,10 @@ services:
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: "3600"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - supabase_internal
     logging: *logging
 
   auth:
@@ -80,7 +98,7 @@ services:
     environment:
       GOTRUE_API_HOST: "0.0.0.0"
       GOTRUE_API_PORT: "9999"
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL:?set API_EXTERNAL_URL}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://supabase-kong:8000}
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
       GOTRUE_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
@@ -89,7 +107,7 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "false"
       GOTRUE_DISABLE_SIGNUP: "false"
-      # PinPosy шлёт письма собственным SMTP-модулем (backend/.env), GoTrue письма не пишет.
+      # PinPosy шлёт системные письма собственным backend mailer.
       GOTRUE_SMTP_HOST: ""
       GOTRUE_SMTP_PORT: "0"
       GOTRUE_SMTP_ADMIN_EMAIL: ""
@@ -98,7 +116,10 @@ services:
       GOTRUE_MAILER_URLPATHS_RECOVERY: "/auth/v1/verify"
       GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/auth/v1/verify"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - supabase_internal
     logging: *logging
 
   storage:
@@ -123,9 +144,18 @@ services:
     volumes:
       - storage_data:/var/lib/storage
     depends_on:
-      - db
-      - rest
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    networks:
+      - supabase_internal
     logging: *logging
+
+networks:
+  supabase_internal:
+    external: true
+    name: pinposy-internal
 
 volumes:
   db_data:
