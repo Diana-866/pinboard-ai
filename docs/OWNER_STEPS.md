@@ -50,13 +50,18 @@ ufw status
 На VPS с 8 ГБ RAM оставьте 2 ГБ swap как аварийный запас (не как замену RAM). Команда безопасно пропускает создание, если swap-файл уже включён:
 
 ```bash
-if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+if [ -e /swapfile ]; then
+  if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+    echo '/swapfile exists but is not active; inspect it manually before proceeding.' >&2
+    exit 1
+  fi
+else
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
-  grep -qxF '/swapfile none swap sw 0 0' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
+grep -qxF '/swapfile none swap sw 0 0' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 printf 'vm.swappiness=10\n' > /etc/sysctl.d/99-pinposy-swap.conf
 sysctl --system
 swapon --show
