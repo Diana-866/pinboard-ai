@@ -1,6 +1,6 @@
 {
   "files": 190,
-  "total": 1557,
+  "total": 1559,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -67,7 +67,7 @@
     "generation-failure-charge.test.js": 6,
     "generation-pricing.test.js": 8,
     "generation-recovery.test.js": 4,
-    "gptunnel-payload.test.js": 8,
+    "gptunnel-payload.test.js": 10,
     "gptunnel-pricing.test.js": 13,
     "gptunnel-recovery.test.js": 3,
     "healthcheck-script.test.js": 7,
