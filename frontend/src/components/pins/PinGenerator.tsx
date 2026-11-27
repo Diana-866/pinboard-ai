@@ -1727,6 +1727,73 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 </button>
               )}
 
+              {/* Add every generated pin to review without leaving this editor. Continue after individual failures. */}
+              {onAddToReview && generatedPins.length > 1 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const board = boards.find((item) => item.id === selectedBoardId);
+                    if (!board || !onAddToReview || isAddingToReview) return;
+                    setIsAddingToReview(true);
+                    setReviewBatchProgress({ completed: 0, total: generatedPins.length, failed: 0 });
+                    setReviewQueueSuccess(false);
+                    let completed = 0;
+                    let failed = 0;
+                    const failures: string[] = [];
+                    try {
+                      for (const pin of generatedPins) {
+                        try {
+                          const pending = readPendingPinDescription(board.id, pin.id);
+                          if (pending) {
+                            const saved = await savePinDescription(board.id, pin.id, pending.description, ++descriptionSaveRevisionRef.current);
+                            if (!saved) throw new Error('Не удалось сохранить описание');
+                          }
+                          const pendingSave = pendingPinSavesRef.current.get(pin.id);
+                          if (pendingSave) await pendingSave;
+                          const title = resolvePinTitleSelection(pinTitleSelectionRef.current, pin.id, pin.selectedTitle);
+                          await onAddToReview({
+                            id: `review-${pin.id}`,
+                            pinId: pin.id,
+                            title,
+                            description: readPendingPinDescription(board.id, pin.id)?.description ?? pin.description,
+                            boardName: board.name,
+                            boardId: board.id,
+                            imageUrl: pin.imageUrl,
+                            aspectRatio: pin.aspectRatio,
+                            reason: t.generator.reviewQueueReason,
+                            trendMetric: '',
+                            scheduledDate: customScheduleDate,
+                            scheduledTime: customScheduleTime,
+                            destinationUrl,
+                            accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
+                            accountId: selectedPinterestAccountId || undefined,
+                          });
+                          completed += 1;
+                        } catch (error) {
+                          failed += 1;
+                          failures.push(`${pin.selectedTitle || pin.id}: ${error instanceof Error ? error.message : 'ошибка добавления'}`);
+                        }
+                        setReviewBatchProgress({ completed: completed + failed, total: generatedPins.length, failed });
+                      }
+                      setReviewQueueSuccess(failed === 0);
+                      if (failed) {
+                        window.alert(`Добавлено ${completed} из ${generatedPins.length}. Ошибок: ${failed}.\n${failures.slice(0, 5).join('\n')}`);
+                      } else {
+                        window.alert(`Все ${completed} пинов добавлены в очередь проверки.`);
+                      }
+                    } finally {
+                      setIsAddingToReview(false);
+                    }
+                  }}
+                  disabled={!boards.some((item) => item.id === selectedBoardId) || generatedPins.some((pin) => !pin.id || !pin.imageUrl) || isAddingToReview}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+                >
+                  {isAddingToReview && reviewBatchProgress
+                    ? `Добавление в проверку: ${reviewBatchProgress.completed} из ${reviewBatchProgress.total}`
+                    : 'Отправить все пины на проверку'}
+                </button>
+              )}
+
               {/* Action Buttons: Schedule to Calendar */}
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
