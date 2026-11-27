@@ -1748,6 +1748,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                       for (const pin of generatedPins) {
                         try {
                           const pending = readPendingPinDescription(board.id, pin.id);
+                          const description = pending?.description ?? pin.description;
                           if (pending) {
                             const saved = await savePinDescription(board.id, pin.id, pending.description, ++descriptionSaveRevisionRef.current);
                             if (!saved) throw new Error('Не удалось сохранить описание');
@@ -1759,7 +1760,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                             id: `review-${pin.id}`,
                             pinId: pin.id,
                             title,
-                            description: readPendingPinDescription(board.id, pin.id)?.description ?? pin.description,
+                            description,
                             boardName: board.name,
                             boardId: board.id,
                             imageUrl: pin.imageUrl,
