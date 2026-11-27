@@ -73,7 +73,7 @@ docker compose version
 mkdir -p /opt/pinposy
 cd /opt/pinposy
 git clone https://github.com/Diana-866/pinboard-ai.git
-cd /opt/pinboard-ai
+cd /opt/pinposy/pinboard-ai
 ```
 
 Если репозиторий к этому моменту станет приватным, используйте SSH deploy key или GitHub CLI, авторизованный на сервере. Не вставляйте PAT в URL клонирования и не сохраняйте его в shell history.
