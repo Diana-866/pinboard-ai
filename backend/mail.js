@@ -51,10 +51,10 @@ function getImapAuth() {
   };
 }
 
-function getTransactionalSmtpAuth() {
+function getTransactionalSmtpAuth(env = process.env) {
   return {
-    user: process.env.MAIL_SMTP_USER,
-    pass: process.env.MAIL_SMTP_PASS,
+    user: env.MAIL_SMTP_USER || env.MAIL_SMTP_USERNAME || "",
+    pass: env.MAIL_SMTP_PASS || env.MAIL_SMTP_PASSWORD || "",
   };
 }
 
@@ -410,13 +410,13 @@ function buildReplyTransportOptions(config) {
   };
 }
 
-function buildTransactionalTransportOptions() {
-  const port = mailPort(process.env.MAIL_SMTP_PORT, 465);
+function buildTransactionalTransportOptions(env = process.env) {
+  const port = mailPort(env.MAIL_SMTP_PORT, 465);
   return {
     host: env.MAIL_SMTP_HOST,
     port,
     ...smtpTlsPolicy(port),
-    auth: getTransactionalSmtpAuth(),
+    auth: getTransactionalSmtpAuth(env),
     ...mailTransportTimeouts(),
   };
 }
