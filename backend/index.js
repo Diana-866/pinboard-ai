@@ -2026,7 +2026,7 @@ app.post("/boards/:id/pins/generate", requireAuth, aiLimiter, requireTariff(["st
               try {
                 const gptunnelModule = require("./gptunnel");
                 const candidates = await gptunnelModule.listImageModelsFull();
-                fallbackModel = gptunnelModule.chooseFallbackImageModel(candidates, task.model || model);
+                fallbackModel = gptunnelModule.chooseFallbackImageModel(candidates, task.model || model, task.aspect_ratio);
                 if (fallbackModel) {
                   // Идентификаторы моделей — публичный каталог провайдера, не секрет.
                   console.log(JSON.stringify({
