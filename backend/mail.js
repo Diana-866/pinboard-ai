@@ -111,6 +111,146 @@ function transactionalMailConfigured() {
   return !!(process.env.MAIL_SMTP_HOST && auth.user && auth.pass);
 }
 
+const MAIL_HTTP_API_DEFAULT_URL = "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json";
+const MAIL_HTTP_API_ALLOWED_HOSTS = new Set(["goapi.unisender.ru", "go1.unisender.ru", "go2.unisender.ru"]);
+const MAIL_HTTP_API_PATH = "/ru/transactional/api/v1/email/send.json";
+const MAIL_HTTP_API_TIMEOUT_MS = 10_000;
+
+function parseHttpApiFrom(env = process.env) {
+  const raw = String(env.MAIL_HTTP_API_FROM || env.MAIL_FROM || env.MAIL_SMTP_USER || "").trim();
+  if (!raw) return null;
+  const match = raw.match(/^(.*?)\s*<([^<>]+)>$/);
+  const email = (match ? match[2] : raw).trim();
+  if (!EMAIL_SHAPE.test(email)) return null;
+  const name = String(env.MAIL_HTTP_API_FROM_NAME || (match && match[1]) || "PinPosy")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/^["']|["']$/g, "")
+    .trim()
+    .slice(0, 78) || "PinPosy";
+  return { email, name };
+}
+
+function transactionalHttpMailConfigured(env = process.env) {
+  return !!(String(env.MAIL_HTTP_API_KEY || "").trim() && parseHttpApiFrom(env));
+}
+
+function getHttpApiMailConfig(env = process.env) {
+  const apiKey = String(env.MAIL_HTTP_API_KEY || "").trim();
+  const from = parseHttpApiFrom(env);
+  if (!apiKey || !from) return null;
+
+  const rawUrl = String(env.MAIL_HTTP_API_URL || MAIL_HTTP_API_DEFAULT_URL).trim();
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    const error = new Error("Invalid transactional HTTP mail endpoint");
+    error.code = "config_mail_http_api_url_invalid";
+    error.providerStatus = 503;
+    throw error;
+  }
+  if (url.protocol !== "https:" || !MAIL_HTTP_API_ALLOWED_HOSTS.has(url.hostname) ||
+      url.pathname !== MAIL_HTTP_API_PATH || url.search || url.hash || url.username || url.password) {
+    const error = new Error("Transactional HTTP mail endpoint is not an allowed HTTPS endpoint");
+    error.code = "config_mail_http_api_url_invalid";
+    error.providerStatus = 503;
+    throw error;
+  }
+  return { url: url.toString(), apiKey, from };
+}
+
+/**
+ * Only connection-stage SMTP failures are safe to fall back from. A timeout during DATA/after
+ * acceptance is ambiguous and must not trigger a second provider send.
+ */
+function isSmtpConnectFailure(error) {
+  const code = String(error && error.code || "").toUpperCase();
+  const command = String(error && error.command || "").toUpperCase();
+  const connectionCodes = new Set(["ECONNECTION", "ECONNREFUSED", "ETIMEDOUT", "ESOCKET", "ENOTFOUND", "EHOSTUNREACH"]);
+  if (!connectionCodes.has(code)) return false;
+  if (command === "CONN" || command === "CONNECT") return true;
+  return ["ECONNECTION", "ECONNREFUSED", "ENOTFOUND", "EHOSTUNREACH"].includes(code);
+}
+
+function parseSingleRecipient(to) {
+  const raw = String(to || "").trim();
+  const match = raw.match(/<([^<>]+)>/);
+  const email = (match ? match[1] : raw).trim();
+  if (raw.includes(",") || raw.includes(";") || !EMAIL_SHAPE.test(email)) {
+    throw new Error("Transactional HTTP mail requires one valid recipient");
+  }
+  return email;
+}
+
+async function sendTransactionalHttpApi({ to, subject, text, html, messageId }) {
+  const config = getHttpApiMailConfig();
+  if (!config) throw new Error("Transactional HTTP mail is not configured");
+  const recipient = parseSingleRecipient(to);
+  const idempotenceKey = typeof messageId === "string" && messageId.trim()
+    ? crypto.createHash("sha256").update(messageId).digest("hex")
+    : crypto.randomUUID();
+  const message = {
+    recipients: [{ email: recipient }],
+    from_email: config.from.email,
+    from_name: config.from.name,
+    subject: String(subject || ""),
+    body: {
+      ...(typeof text === "string" && text ? { plaintext: text } : {}),
+      ...(typeof html === "string" && html ? { html } : {}),
+    },
+    idempotence_key: idempotenceKey,
+    track_links: 0,
+    track_read: 0,
+  };
+  if (!message.body.plaintext && !message.body.html) {
+    throw new Error("Transactional HTTP mail requires a text or HTML body");
+  }
+
+  const axios = require("axios");
+  let response;
+  try {
+    response = await axios.post(config.url, { message }, {
+      timeout: MAIL_HTTP_API_TIMEOUT_MS,
+      headers: {
+        "X-API-KEY": config.apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      validateStatus: () => true,
+    });
+  } catch (error) {
+    if (error && Number.isInteger(error.response && error.response.status)) {
+      error.providerStatus = error.response.status;
+    } else if (error && !Number.isInteger(error.providerStatus)) {
+      error.providerStatus = 502;
+    }
+    throw error;
+  }
+
+  const status = Number(response && response.status);
+  const data = response && response.data;
+  const failedEmails = data && data.failed_emails;
+  const recipientFailed = failedEmails && Object.prototype.hasOwnProperty.call(failedEmails, recipient);
+  if (status < 200 || status >= 300 || !data || data.status !== "success" || recipientFailed) {
+    const error = new Error("Transactional HTTP mail provider rejected the message");
+    error.providerStatus = status >= 400 && status <= 599 ? status : 502;
+    error.code = Number.isSafeInteger(data && data.code) ? "mail_http_api_rejected" : "mail_http_api_failed";
+    throw error;
+  }
+  return { ok: true };
+}
+
+async function sendMailViaHttpApi(message, { needThrow = true } = {}) {
+  try {
+    await sendTransactionalHttpApi(message);
+    return { ok: true };
+  } catch (error) {
+    logError("mail.http_api_failed", error, Number.isInteger(error && error.providerStatus) ? error.providerStatus : 503);
+    if (!needThrow) return { ok: false, error: "Отправка писем временно недоступна. Попробуйте позже." };
+    throw httpError(503, "Отправка писем временно недоступна. Попробуйте позже.");
+  }
+}
+
 async function listInbox(limit = 30) {
   const safeLimit = normalizeInboxLimit(limit);
   if (!mailConfigured()) {
@@ -280,7 +420,9 @@ function buildTransactionalTransportOptions() {
 // Универсальная отправка письма (используется биллингом: «Тариф активирован»).
 // Не бросает исключение наружу без needThrow — вызывающий код сам решает, критично ли это.
 async function sendMail({ to, subject, text, html, messageId }, { needThrow = true } = {}) {
+  const message = { to, subject, text, html, messageId };
   if (!transactionalMailConfigured()) {
+    if (transactionalHttpMailConfigured()) return sendMailViaHttpApi(message, { needThrow });
     if (!needThrow) {
       logWarning("mail.event_002");
       return { ok: false, skipped: true };
@@ -288,9 +430,9 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
     logError("mail.event_003");
     throw httpError(503, "Отправка писем временно недоступна. Попробуйте позже.");
   }
+
   const nodemailer = require("nodemailer");
   const transporter = nodemailer.createTransport(buildTransactionalTransportOptions());
-
   try {
     await transporter.sendMail({
       from: process.env.MAIL_FROM || getTransactionalSmtpAuth().user,
@@ -301,12 +443,16 @@ async function sendMail({ to, subject, text, html, messageId }, { needThrow = tr
       ...(messageId ? { messageId } : {}),
     });
     return { ok: true };
-  } catch (e) {
+  } catch (error) {
+    if (transactionalHttpMailConfigured() && isSmtpConnectFailure(error)) {
+      logWarning("mail.smtp_http_fallback", error, 503);
+      return sendMailViaHttpApi(message, { needThrow });
+    }
     if (!needThrow) {
       logError("mail.event_001");
-      return { ok: false, error: e.message };
+      return { ok: false, error: error.message };
     }
-    throw e;
+    throw error;
   }
 }
 
@@ -318,6 +464,11 @@ module.exports = {
   replyToMessage,
   mailConfigured,
   transactionalMailConfigured,
+  transactionalHttpMailConfigured,
+  getHttpApiMailConfig,
+  isSmtpConnectFailure,
+  sendTransactionalHttpApi,
+  sendMailViaHttpApi,
   sendMail,
   buildTransactionalTransportOptions,
   buildReplyTransportOptions,
@@ -329,4 +480,6 @@ module.exports = {
   MAIL_CONNECTION_TIMEOUT_MS,
   MAIL_GREETING_TIMEOUT_MS,
   MAIL_SOCKET_TIMEOUT_MS,
+  MAIL_HTTP_API_DEFAULT_URL,
+  MAIL_HTTP_API_TIMEOUT_MS,
 };
