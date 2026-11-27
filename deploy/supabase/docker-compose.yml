@@ -26,9 +26,9 @@ services:
       - -c
       - shared_buffers=1GB
       - -c
-      - work_mem=16MB
+      - work_mem=8MB
       - -c
-      - max_connections=100
+      - max_connections=80
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     volumes:
