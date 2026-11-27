@@ -50,6 +50,7 @@ import {
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 import { readAuthToken } from '../../lib/authStorage';
+import { runBatchWithPartialFailures } from '../../utils/batchPinReview';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -1631,51 +1632,50 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     setIsAddingToReview(true);
                     setReviewBatchProgress({ completed: 0, total: generatedPins.length, failed: 0 });
                     setReviewQueueSuccess(false);
-                    let completed = 0;
-                    let failed = 0;
-                    const failures: string[] = [];
-                    try {
-                      for (const pin of generatedPins) {
-                        try {
-                          const pending = readPendingPinDescription(board.id, pin.id);
-                          const description = pending?.description ?? pin.description;
-                          if (pending) {
-                            const saved = await savePinDescription(board.id, pin.id, pending.description, ++descriptionSaveRevisionRef.current);
-                            if (!saved) throw new Error('Не удалось сохранить описание');
-                          }
-                          const pendingSave = pendingPinSavesRef.current.get(pin.id);
-                          if (pendingSave) await pendingSave;
-                          const title = resolvePinTitleSelection(pinTitleSelectionRef.current, pin.id, pin.selectedTitle);
-                          await onAddToReview({
-                            id: `review-${pin.id}`,
-                            pinId: pin.id,
-                            title,
-                            description,
-                            boardName: board.name,
-                            boardId: board.id,
-                            imageUrl: pin.imageUrl,
-                            aspectRatio: pin.aspectRatio,
-                            reason: t.generator.reviewQueueReason,
-                            trendMetric: '',
-                            scheduledDate: customScheduleDate,
-                            scheduledTime: customScheduleTime,
-                            destinationUrl,
-                            accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
-                            accountId: selectedPinterestAccountId || undefined,
-                          });
-                          completed += 1;
-                        } catch (error) {
-                          failed += 1;
-                          failures.push(`${pin.selectedTitle || pin.id}: ${error instanceof Error ? error.message : 'ошибка добавления'}`);
+                    const result = await runBatchWithPartialFailures(
+                      generatedPins,
+                      async (pin) => {
+                        const pending = readPendingPinDescription(board.id, pin.id);
+                        const description = pending?.description ?? pin.description;
+                        if (pending) {
+                          const saved = await savePinDescription(board.id, pin.id, pending.description, ++descriptionSaveRevisionRef.current);
+                          if (!saved) throw new Error('Не удалось сохранить описание');
                         }
-                        setReviewBatchProgress({ completed: completed + failed, total: generatedPins.length, failed });
-                      }
-                      setReviewQueueSuccess(failed === 0);
-                      if (failed) {
-                        window.alert(`Добавлено ${completed} из ${generatedPins.length}. Ошибок: ${failed}.\n${failures.slice(0, 5).join('\n')}`);
-                      } else {
-                        window.alert(`Все ${completed} пинов добавлены в очередь проверки.`);
-                      }
+                        const pendingSave = pendingPinSavesRef.current.get(pin.id);
+                        if (pendingSave) await pendingSave;
+                        const title = resolvePinTitleSelection(pinTitleSelectionRef.current, pin.id, pin.selectedTitle);
+                        await onAddToReview({
+                          id: `review-${pin.id}`,
+                          pinId: pin.id,
+                          title,
+                          description,
+                          boardName: board.name,
+                          boardId: board.id,
+                          imageUrl: pin.imageUrl,
+                          aspectRatio: pin.aspectRatio,
+                          reason: t.generator.reviewQueueReason,
+                          trendMetric: '',
+                          scheduledDate: customScheduleDate,
+                          scheduledTime: customScheduleTime,
+                          destinationUrl,
+                          accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
+                          accountId: selectedPinterestAccountId || undefined,
+                        });
+                      },
+                      (progress) => setReviewBatchProgress({
+                        completed: progress.completed,
+                        total: progress.total,
+                        failed: progress.failed,
+                      }),
+                    );
+                    setReviewQueueSuccess(result.failures.length === 0);
+                    if (result.failures.length) {
+                      const details = result.failures.slice(0, 5).map(({ item, error }) =>
+                        `${item.selectedTitle || item.id}: ${error instanceof Error ? error.message : 'ошибка добавления'}`);
+                      window.alert(`Добавлено ${result.succeeded} из ${generatedPins.length}. Ошибок: ${result.failures.length}.\n${details.join('\n')}`);
+                    } else {
+                      window.alert(`Все ${result.succeeded} пинов добавлены в очередь проверки.`);
+                    }
                     } finally {
                       setIsAddingToReview(false);
                     }
