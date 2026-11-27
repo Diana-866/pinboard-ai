@@ -17,7 +17,17 @@ identity="$("${psql_base[@]}" -At -F '|' -c "select current_database(), coalesce
 actual_database="${identity%%|*}"
 actual_address="${identity#*|}"
 [[ "$actual_database" == "$PGDATABASE" ]] || { echo "Refusing tests: connected database does not match PGDATABASE." >&2; exit 2; }
-case "$actual_address" in 127.*|::1) ;; *) echo "Refusing tests: PostgreSQL server address '$actual_address' is not loopback." >&2; exit 2 ;; esac
+actual_address="${actual_address%%/*}"
+case "$actual_address" in
+  127.*|::1) ;;
+  10.*|192.168.*|172.16.*|172.17.*|172.18.*|172.19.*|172.2[0-9].*|172.30.*|172.31.*)
+    [[ "$PINPOSY_ALLOW_DISPOSABLE_DB_TESTS" == "1" && "$PGDATABASE" =~ ^pinposy_verify_[0-9]+_[0-9]+$ ]] || {
+      echo "Refusing tests: private PostgreSQL address requires the unique CI disposable database." >&2
+      exit 2
+    }
+    ;;
+  *) echo "Refusing tests: PostgreSQL server address '$actual_address' is not loopback or a private CI address." >&2; exit 2 ;;
+esac
 TEST_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pinposy-concurrency.XXXXXX")"
 cleanup_test_tmp_dir() {
   if [[ -n "${TEST_TMP_DIR:-}" && -d "$TEST_TMP_DIR" && "$TEST_TMP_DIR" == "${TMPDIR:-/tmp}"/pinposy-concurrency.* ]]; then

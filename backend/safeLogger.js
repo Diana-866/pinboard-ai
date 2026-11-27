@@ -77,6 +77,56 @@ function logWarning(event, error, status) {
   return logEvent("warn", event, error, status);
 }
 
+
+/**
+ * Pinterest HTTP rejection diagnostics.
+ * Log only the provider's HTTP status, machine code and bounded message. Never serialize
+ * response objects, headers, request bodies or credentials. Provider messages are redacted
+ * for common bearer/API-token formats before they reach the production log.
+ */
+function logPinterestHttpFailure(status, data) {
+  if (!Number.isInteger(status) || status < 400 || status > 599) return;
+
+  let providerCode;
+  let rawMessage;
+  try {
+    if (data && typeof data === "object") {
+      const nested = data.error && typeof data.error === "object" ? data.error : null;
+      const code = data.code !== undefined ? data.code : nested && nested.code;
+      if (Number.isSafeInteger(code) && code >= 0 && code <= 999999) providerCode = code;
+      else if (typeof code === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(code)) providerCode = code;
+      rawMessage = typeof data.message === "string" ? data.message
+        : typeof data.error_description === "string" ? data.error_description
+          : nested && typeof nested.message === "string" ? nested.message
+            : typeof data.error === "string" ? data.error : undefined;
+    } else if (typeof data === "string") {
+      rawMessage = data;
+    }
+  } catch {
+    // Malformed/hostile provider envelopes are not a reason to serialize the object.
+  }
+
+  const record = {
+    level: "error",
+    event: "pinterest.api_response_failed",
+    provider_status: status,
+  };
+  if (providerCode !== undefined) record.provider_code = providerCode;
+  if (typeof rawMessage === "string" && rawMessage.trim()) {
+    const message = rawMessage
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+      .replace(/\b(access_token|refresh_token|client_secret|token|authorization)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1=[redacted]")
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted]")
+      .replace(/\bpina_[A-Za-z0-9_-]{8,}\b/gi, "[redacted]")
+      .slice(0, 240);
+    record.provider_message = message;
+  }
+  const correlationId = currentCorrelationId();
+  if (correlationId) record.correlation_id = correlationId;
+  console.error(JSON.stringify(record));
+}
+
 function logFatalSync(event, error) {
   const record = { level: "fatal", event: safeEventName(event) };
   // Section 151: без этого падение при старте было безымянным. Пишем только белый список:
@@ -101,4 +151,4 @@ function logInfo(event) {
   console.info(JSON.stringify(record));
 }
 
-module.exports = { logError, logWarning, logInfo, logFatalSync, runWithCorrelationId };
+module.exports = { logError, logWarning, logInfo, logPinterestHttpFailure, logFatalSync, runWithCorrelationId };
