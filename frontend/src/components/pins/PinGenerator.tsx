@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
+  ChevronLeft,
   ArrowRight,
   Info,
   Shuffle,
@@ -629,6 +630,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const currentPin = generatedPins[activePinIndex];
+  const selectedImageModelDetails = imageModels.find((model) => model.id === selectedImageModel);
+  useEffect(() => {
+    if (!generatedPins.length) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (event.key === 'ArrowLeft' && activePinIndex > 0) { event.preventDefault(); setActivePinIndex((index) => Math.max(0, index - 1)); }
+      else if (event.key === 'ArrowRight' && activePinIndex < generatedPins.length - 1) { event.preventDefault(); setActivePinIndex((index) => Math.min(generatedPins.length - 1, index + 1)); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [generatedPins.length, activePinIndex]);
   const currentDescriptionSaveState = currentPin
     ? descriptionSavePinId === currentPin.id
       ? descriptionSaveState
@@ -1033,8 +1047,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Form & Configuration (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
+        {/* Left Column: Generation settings */}
+        <div className="lg:col-span-4 space-y-5">
           {/* Form Card */}
           <div className="custom-card p-5 rounded-2xl space-y-4">
             {/* Topic Input */}
@@ -1421,6 +1435,18 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               )}
             </div>
 
+            {/* Backend-confirmed model catalogue and per-image credit cost */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider">Модель изображения</label>
+              <select value={selectedImageModel} onChange={(e) => setSelectedImageModel(e.target.value)}
+                disabled={!imageModels.length || isGenerating}
+                className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme disabled:opacity-60">
+                {imageModels.map((model) => <option key={model.id} value={model.id}>{model.id} · {model.creditsPerImage} кредитов / изображение</option>)}
+              </select>
+              {selectedImageModelDetails && <p className="text-[11px] text-muted-theme">{selectedImageModelDetails.creditsPerImage} кредитов за изображение · {selectedImageModelDetails.creditsPerImage * pinCount} за {pinCount} шт.</p>}
+              {modelCatalogError && <p role="alert" className="text-[11px] text-red-600">{modelCatalogError}</p>}
+            </div>
+
             {/* Generate Action Button */}
             <div className="pt-2">
               <button
@@ -1465,6 +1491,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
           )}
 
+
+        </div>
+
+        {/* Right Column: Pin preview and editor */}
+        <div className="lg:col-span-8 space-y-4">
           {/* Generated Pins Editor Workspace */}
           {generatedPins.length > 0 && (
             <div className="custom-card p-5 rounded-2xl space-y-4">
@@ -1472,31 +1503,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <h3 className="text-base font-bold text-primary-theme font-heading">
                   {t.generator.resultsTitle}
                 </h3>
-                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">
-                  {t.generator.pinCounterTemplate.replace('{current}', String(activePinIndex + 1)).replace('{total}', String(generatedPins.length))} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
-                </span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">{activePinIndex + 1} из {generatedPins.length}</span>
               </div>
 
-              {/* Batch Tabs (Pin 1 .. N) with Aspect Ratio Badges */}
-              {generatedPins.length > 1 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5">
-                  {generatedPins.map((p, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActivePinIndex(idx)}
-                      disabled={isSchedulingPin}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                        activePinIndex === idx
-                          ? 'accent-btn shadow-xs'
-                          : 'bg-subtle text-secondary-theme hover:text-primary-theme'
-                      }`}
-                    >
-                      <span>#{idx + 1}</span>
-                      <span className="font-mono text-[10px] opacity-80">({p.aspectRatio})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" onClick={() => setActivePinIndex((index) => Math.max(0, index - 1))} disabled={activePinIndex === 0 || isSchedulingPin} aria-label="Предыдущий пин" className="p-2.5 rounded-xl border border-subtle bg-surface hover:bg-subtle disabled:opacity-30"><ChevronLeft className="w-5 h-5" /></button>
+                <span className="text-xs text-secondary-theme">← / → на клавиатуре</span>
+                <button type="button" onClick={() => setActivePinIndex((index) => Math.min(generatedPins.length - 1, index + 1))} disabled={activePinIndex >= generatedPins.length - 1 || isSchedulingPin} aria-label="Следующий пин" className="p-2.5 rounded-xl border border-subtle bg-surface hover:bg-subtle disabled:opacity-30"><ChevronRight className="w-5 h-5" /></button>
+              </div>
 
               {/* Ratio switcher for active pin */}
               {currentPin && (
@@ -1531,41 +1545,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 </div>
               )}
 
-              {/* Title Variations Selector */}
+              {/* Editable pin title */}
               {currentPin && (
                 <div>
-                  <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                    {t.generator.titleOptions}
-                  </label>
-                  <div className="space-y-1.5">
-                    {currentPin.titles.map((titleOption, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        aria-pressed={currentPin.selectedTitle === titleOption}
-                        onClick={() => { void handleTitleSelect(titleOption); }}
-                        disabled={isSchedulingPin}
-                        className={`w-full text-left p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                          currentPin.selectedTitle === titleOption
-                            ? 'border-accent bg-subtle text-primary-theme font-medium shadow-xs'
-                            : 'border-subtle bg-app-input text-secondary-theme hover:bg-subtle'
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
-                            currentPin.selectedTitle === titleOption
-                              ? 'border-accent bg-accent text-white'
-                              : 'border-strong'
-                          }`}
-                        >
-                          {currentPin.selectedTitle === titleOption && (
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
-                          )}
-                        </div>
-                        <span className="flex-1">{titleOption}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <label htmlFor="pin-title" className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">Название пина</label>
+                  <input id="pin-title" type="text" value={currentPin.selectedTitle} maxLength={100} disabled={isSchedulingPin}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      rememberPinTitleSelection(pinTitleSelectionRef.current, currentPin.id, value);
+                      setGeneratedPins((previous) => previous.map((pin) => pin.id === currentPin.id
+                        ? { ...pin, selectedTitle: value, headlineOverlay: value.length > 36 ? value.slice(0, 36) + '...' : value } : pin));
+                    }}
+                    onBlur={() => { void handleTitleSelect(currentPin.selectedTitle); }}
+                    className="w-full px-3 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
               )}
 
@@ -1615,25 +1607,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
                   />
-                </div>
-              )}
-
-              {/* Keywords Targeted */}
-              {currentPin && (
-                <div>
-                  <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                    {t.generator.keywordsIncluded}
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {currentPin.keywords.map((kw, i) => (
-                      <span
-                        key={i}
-                        className="text-xs px-2.5 py-1 rounded-md bg-subtle border border-subtle text-secondary-theme"
-                      >
-                        #{kw}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -1782,10 +1755,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               )}
             </div>
           )}
-        </div>
-
-        {/* Right Column: Visual Pin Preview & Canvas Controls (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
           <div className="custom-card p-5 rounded-2xl">
             <div className="flex items-center justify-between mb-4">
               <div>
