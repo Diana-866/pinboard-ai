@@ -1,6 +1,6 @@
 {
   "files": 190,
-  "total": 1557,
+  "total": 1559,
   "counts": {
     "account-deletion-retry-policy.test.js": 4,
     "account-deletion-worker-gate.test.js": 2,
@@ -114,7 +114,7 @@
     "pinterest-oauth-state.test.js": 13,
     "pinterest-oauth.test.js": 5,
     "pinterest-public-account.test.js": 8,
-    "pinterest-publish-pin.test.js": 28,
+    "pinterest-publish-pin.test.js": 29,
     "pinterest-rate-limit.test.js": 4,
     "pinterest-refresh-recovery.test.js": 10,
     "pinterest-refresh.test.js": 21,
@@ -152,7 +152,7 @@
     "rls-policy-contract.test.js": 5,
     "route-auth-coverage.test.js": 5,
     "route-ownership-coverage.test.js": 5,
-    "safe-logger.test.js": 12,
+    "safe-logger.test.js": 13,
     "schedule-claim-heartbeat-window.test.js": 2,
     "schedule-cron.test.js": 4,
     "schedule-response.test.js": 4,
