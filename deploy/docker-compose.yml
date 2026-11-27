@@ -15,6 +15,9 @@ x-backend-common: &backend-common
     NODE_ENV: production
     # Воркеры внутри одного образа: явный opt-in, иначе пайплайн удаления молчит.
     ACCOUNT_DELETION_WORKER_ENABLED: "true"
+  networks:
+    - default
+    - supabase_internal
   depends_on:
     backend:
       condition: service_healthy
@@ -31,6 +34,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+    networks:
+      - default
+      - supabase_internal
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -67,9 +73,17 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
     depends_on:
       backend:
         condition: service_healthy
+
+networks:
+  default: {}
+  supabase_internal:
+    external: true
+    name: pinposy-internal
 
 volumes:
   caddy_data:
