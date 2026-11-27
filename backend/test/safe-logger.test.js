@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { logError, logWarning, logInfo, runWithCorrelationId } = require("../safeLogger");
+const { logError, logWarning, logInfo, logPinterestHttpFailure, runWithCorrelationId } = require("../safeLogger");
 
 test("logs only the allowlisted event, status, and normalized error code", () => {
   const original = console.error;
@@ -94,6 +94,31 @@ test("warning and info events use the same safe event-name contract", () => {
   });
   assert.equal(warnings[0].includes("private@example.com"), false);
   assert.equal(infos[0].includes("private@example.com"), false);
+});
+
+
+test("Pinterest response logs include HTTP status and provider code/message but redact tokens", () => {
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    logPinterestHttpFailure(400, {
+      code: 2,
+      message: "Invalid token=secret-value Bearer pina_123456789abcdef",
+      access_token: "must-not-be-serialized",
+    });
+  } finally {
+    console.error = original;
+  }
+  assert.equal(output.length, 1);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "pinterest.api_response_failed");
+  assert.equal(record.provider_status, 400);
+  assert.equal(record.provider_code, 2);
+  assert.match(record.provider_message, /Invalid/);
+  for (const secret of ["secret-value", "123456789abcdef", "must-not-be-serialized"]) {
+    assert.equal(output[0].includes(secret), false, secret);
+  }
 });
 
 test("correlation ID is attached to logs inside async request context only", async () => {
