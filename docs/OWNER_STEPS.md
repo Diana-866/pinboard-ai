@@ -45,6 +45,26 @@ ufw status
 
 Проверьте, что в списке разрешены SSH, 80 и 443. **Не добавляйте правила для 5432 или 8000.** Перед отключением SSH-входа по паролю сначала проверьте вход по ключу в новом окне PowerShell, иначе можно потерять доступ к серверу.
 
+### Небольшой swap для защиты от OOM
+
+На VPS с 8 ГБ RAM оставьте 2 ГБ swap как аварийный запас (не как замену RAM). Команда безопасно пропускает создание, если swap-файл уже включён:
+
+```bash
+if ! swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -qxF '/swapfile none swap sw 0 0' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+printf 'vm.swappiness=10\n' > /etc/sysctl.d/99-pinposy-swap.conf
+sysctl --system
+swapon --show
+free -h
+```
+
+Ожидаемый результат: swap около 2 ГБ виден в `swapon --show`. Если файл уже существует, но не включён, не перезаписывайте его автоматически — сначала проверьте его состояние.
+
 ---
 
 ## 2. Docker и файлы PinPosy
