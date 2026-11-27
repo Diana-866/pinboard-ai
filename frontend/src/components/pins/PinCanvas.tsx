@@ -31,6 +31,8 @@ export const ASPECT_RATIO_SPECS: Record<
   '1:1': { label: '1:1', nameKey: 'Square', width: 1080, height: 1080, desc: '1080 × 1080 px' },
 };
 
+const TEMPORARILY_AVAILABLE_CANVAS_RATIOS: SupportedAspectRatio[] = ['9:16'];
+
 export const PinCanvas: React.FC<PinCanvasProps> = ({
   data,
   onExport,
@@ -42,8 +44,8 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
   const [actionError, setActionError] = React.useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const ratio = (data.aspectRatio || '2:3') as SupportedAspectRatio;
-  const spec = ASPECT_RATIO_SPECS[ratio] || ASPECT_RATIO_SPECS['2:3'];
+  const ratio = (data.aspectRatio || '9:16') as SupportedAspectRatio;
+  const spec = ASPECT_RATIO_SPECS[ratio] || ASPECT_RATIO_SPECS['9:16'];
 
   const getAspectClass = () => {
     switch (ratio) {
@@ -139,18 +141,14 @@ export const PinCanvas: React.FC<PinCanvasProps> = ({
         </div>
 
         {/* Quick Format Switcher for this Pin */}
-        {onRatioChange && (
+        {onRatioChange && ratio !== '9:16' && (
           <div className="flex items-center gap-1 bg-subtle p-0.5 rounded-lg border border-subtle">
-            {(Object.keys(ASPECT_RATIO_SPECS) as SupportedAspectRatio[]).map((r) => (
+            {TEMPORARILY_AVAILABLE_CANVAS_RATIOS.map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => onRatioChange(r)}
-                className={`px-1.5 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${
-                  ratio === r
-                    ? 'accent-btn font-bold shadow-xs'
-                    : 'text-secondary-theme hover:text-primary-theme'
-                }`}
+                className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer accent-btn font-bold shadow-xs"
                 title={`${r} (${ASPECT_RATIO_SPECS[r].desc})`}
               >
                 {r}

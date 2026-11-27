@@ -3,15 +3,14 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  Sliders,
+  Grid,
   Check,
   RefreshCw,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
+  ChevronLeft,
   ArrowRight,
-  Info,
-  Shuffle,
-  Grid,
   Plus,
   Minus,
   CalendarDays,
@@ -51,6 +50,7 @@ import {
 import { PinCanvas, PinCanvasData, ASPECT_RATIO_SPECS } from './PinCanvas';
 import { useAuth } from '../../context/AuthContext';
 import { readAuthToken } from '../../lib/authStorage';
+import { runBatchWithPartialFailures } from '../../utils/batchPinReview';
 
 interface PinGeneratorProps {
   boards: BoardItem[];
@@ -76,6 +76,9 @@ const ALL_ASPECT_RATIOS: {
   { id: '4:5', label: '4:5', res: '1080 × 1350 px', name: 'Portrait' },
   { id: '1:1', label: '1:1', res: '1080 × 1080 px', name: 'Square' },
 ];
+
+// Keep 9:16 as the only selectable format until the provider's other ratios are validated.
+const TEMPORARILY_AVAILABLE_ASPECT_RATIOS: typeof ALL_ASPECT_RATIOS = ALL_ASPECT_RATIOS.filter((item) => item.id === '9:16');
 
 export const PinGenerator: React.FC<PinGeneratorProps> = ({
   boards,
@@ -115,6 +118,32 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // board fetched for the previously selected account.
   const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setModelCatalogError('');
+    apiRequest('/generation/models')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.models)
+          ? data.models.filter((model: any) => model && typeof model.id === 'string'
+            && model.id.trim() && Number.isFinite(Number(model.creditsPerImage))
+            && Number(model.creditsPerImage) > 0)
+          : [];
+        setImageModels(rows);
+        setSelectedImageModel((current) => rows.some((model: any) => model.id === current)
+          ? current
+          : rows[0]?.id || '');
+        if (!rows.length) setModelCatalogError('Провайдер не вернул доступные модели изображений.');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setImageModels([]);
+        setSelectedImageModel('');
+        setModelCatalogError(error instanceof Error ? error.message : 'Не удалось загрузить модели изображений.');
+      });
+    return () => { active = false; };
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -192,16 +221,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setTopic(initialTopic || '');
   }, [initialTopic]);
 
-  // Aspect ratio mode: single uniform format or mix/randomizer
-  const [aspectMode, setAspectMode] = useState<'single' | 'randomizer'>('single');
-  const [selectedSingleRatio, setSelectedSingleRatio] = useState<SupportedAspectRatio>('2:3');
-  const [randomizerRatios, setRandomizerRatios] = useState<Record<SupportedAspectRatio, boolean>>({
-    '2:3': true,
-    '9:16': true,
-    '3:4': true,
-    '4:5': false,
-    '1:1': false,
-  });
+  const [selectedSingleRatio, setSelectedSingleRatio] = useState<SupportedAspectRatio>('9:16');
 
   // Intelligent Board Recommendation (правило вынесено в src/lib/boardRecommendation.ts, §135)
   const recommendedBoard = useMemo(() => pickRecommendedBoard(boards, topic), [topic, boards]);
@@ -227,8 +247,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
+  const [imageModels, setImageModels] = useState<Array<{ id: string; providerPrice: number; creditsPerImage: number }>>([]);
+  const [selectedImageModel, setSelectedImageModel] = useState('');
+  const [modelCatalogError, setModelCatalogError] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
-  const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
+  const [canvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
@@ -263,6 +286,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
   const [isAddingToReview, setIsAddingToReview] = useState(false);
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
+  const [reviewBatchProgress, setReviewBatchProgress] = useState<{ completed: number; total: number; failed: number } | null>(null);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
     status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
@@ -469,17 +493,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     'Amalfi Coast 5-day travel guide: hidden scenic viewpoints & photo spots',
   ];
 
-  const handleRatioToggle = (ratioKey: SupportedAspectRatio) => {
-    setRandomizerRatios((prev) => {
-      const next = { ...prev, [ratioKey]: !prev[ratioKey] };
-      // Ensure at least one ratio is checked
-      if (!Object.values(next).some(Boolean)) {
-        return prev;
-      }
-      return next;
-    });
-  };
-
   const handleGenerate = async () => {
     const currentTopic = getExplicitGenerationTopic(topic);
     if (!currentTopic) {
@@ -495,27 +508,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
-      // Determine active aspect ratios
-      let targetRatios: SupportedAspectRatio[];
-      if (aspectMode === 'single') {
-        targetRatios = [selectedSingleRatio];
-      } else {
-        targetRatios = (Object.keys(randomizerRatios) as SupportedAspectRatio[]).filter(
-          (k) => randomizerRatios[k]
-        );
-        if (targetRatios.length === 0) targetRatios = ['2:3'];
-      }
+      const targetRatios: SupportedAspectRatio[] = [selectedSingleRatio];
 
       if (!selectedBoard) {
         throw new Error(t.generator.errorNoBoard);
       }
 
-      const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
+      const aspectRatio = selectedSingleRatio;
       const requestBody = {
         topic: currentTopic,
         tone,
         content_language: aiContentLanguage || 'en',
         count: pinCount,
+        model: selectedImageModel,
         aspect_ratio: aspectRatio,
         mixed_ratios: targetRatios,
       };
@@ -595,6 +600,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   };
 
   const currentPin = generatedPins[activePinIndex];
+  const selectedImageModelDetails = imageModels.find((model) => model.id === selectedImageModel);
+  useEffect(() => {
+    if (!generatedPins.length) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (event.key === 'ArrowLeft' && activePinIndex > 0) { event.preventDefault(); setActivePinIndex((index) => Math.max(0, index - 1)); }
+      else if (event.key === 'ArrowRight' && activePinIndex < generatedPins.length - 1) { event.preventDefault(); setActivePinIndex((index) => Math.min(generatedPins.length - 1, index + 1)); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [generatedPins.length, activePinIndex]);
   const currentDescriptionSaveState = currentPin
     ? descriptionSavePinId === currentPin.id
       ? descriptionSaveState
@@ -999,8 +1017,8 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Form & Configuration (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
+        {/* Left Column: Generation settings */}
+        <div className="lg:col-span-4 space-y-5">
           {/* Form Card */}
           <div className="custom-card p-5 rounded-2xl space-y-4">
             {/* Topic Input */}
@@ -1123,95 +1141,16 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </p>
                 </div>
 
-                {/* Aspect Mode Switch */}
-                <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-subtle">
-                  <button
-                    type="button"
-                    onClick={() => setAspectMode('single')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                      aspectMode === 'single'
-                        ? 'accent-btn font-semibold shadow-xs'
-                        : 'text-secondary-theme hover:text-primary-theme'
-                    }`}
-                  >
-                    {t.generator.aspectSingle}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TEMPORARILY_AVAILABLE_ASPECT_RATIOS.map((item) => (
+                  <button key={item.id} type="button" onClick={() => setSelectedSingleRatio(item.id)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${selectedSingleRatio === item.id ? 'border-accent bg-surface font-bold text-primary-theme ring-1 ring-accent' : 'border-subtle bg-surface/50 text-secondary-theme'}`}>
+                    <span className="block text-sm font-mono font-bold">{item.label} · {item.name}</span>
+                    <span className="block text-[11px] text-muted-theme mt-1">{item.res} · выбранный вертикальный формат</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setAspectMode('randomizer')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1 ${
-                      aspectMode === 'randomizer'
-                        ? 'accent-btn font-semibold shadow-xs'
-                        : 'text-secondary-theme hover:text-primary-theme'
-                    }`}
-                  >
-                    <Shuffle className="w-3 h-3" />
-                    <span>{t.generator.aspectRandomizer}</span>
-                  </button>
+                ))}
                 </div>
               </div>
-
-              {/* Mode A: Single Uniform Aspect Ratio Selector */}
-              {aspectMode === 'single' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {ALL_ASPECT_RATIOS.map((item) => {
-                    const isSelected = selectedSingleRatio === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedSingleRatio(item.id)}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-accent bg-surface font-bold text-primary-theme shadow-xs ring-1 ring-accent'
-                            : 'border-subtle bg-surface/50 text-secondary-theme hover:bg-surface'
-                        }`}
-                      >
-                        <span className="text-xs font-mono font-bold block">{item.label}</span>
-                        <span className="text-[10px] text-muted-theme block mt-0.5 font-mono">{item.res}</span>
-                        <span className="text-[10px] text-primary-theme font-medium block mt-1 truncate">
-                          {item.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Mode B: Multi-format Mix with Checkboxes */
-                <div className="space-y-2">
-                  <p className="text-[11px] text-secondary-theme">
-                    {t.generator.aspectMixPrompt}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {ALL_ASPECT_RATIOS.map((item) => {
-                      const isChecked = randomizerRatios[item.id];
-                      return (
-                        <label
-                          key={item.id}
-                          className={`p-2.5 rounded-xl border flex flex-col gap-1 cursor-pointer transition-colors ${
-                            isChecked
-                              ? 'bg-surface border-accent text-primary-theme font-medium shadow-xs'
-                              : 'bg-surface/40 border-subtle text-muted-theme hover:bg-surface'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono font-bold">{item.label}</span>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleRatioToggle(item.id)}
-                              className="w-3.5 h-3.5 rounded cursor-pointer"
-                              style={{ accentColor: 'var(--accent)' }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-muted-theme font-mono leading-tight">{item.res}</span>
-                          <span className="text-[10px] text-secondary-theme leading-tight truncate">{item.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Target Board with AI Recommendation Badge */}
@@ -1387,11 +1326,23 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               )}
             </div>
 
+            {/* Backend-confirmed model catalogue and per-image credit cost */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider">Модель изображения</label>
+              <select value={selectedImageModel} onChange={(e) => setSelectedImageModel(e.target.value)}
+                disabled={!imageModels.length || isGenerating}
+                className="w-full px-3 py-2 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme disabled:opacity-60">
+                {imageModels.map((model) => <option key={model.id} value={model.id}>{model.id} · {model.creditsPerImage} кредитов / изображение</option>)}
+              </select>
+              {selectedImageModelDetails && <p className="text-[11px] text-muted-theme">{selectedImageModelDetails.creditsPerImage} кредитов за изображение · {selectedImageModelDetails.creditsPerImage * pinCount} за {pinCount} шт.</p>}
+              {modelCatalogError && <p role="alert" className="text-[11px] text-red-600">{modelCatalogError}</p>}
+            </div>
+
             {/* Generate Action Button */}
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || isLoadingSavedPins}
+                disabled={isGenerating || isLoadingSavedPins || !selectedImageModel || imageModels.length === 0}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
@@ -1431,6 +1382,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             </div>
           )}
 
+
+        </div>
+
+        {/* Right Column: Pin preview and editor */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="custom-card p-4 rounded-2xl">
+            <PinCanvas data={canvasData} onRatioChange={currentPin ? handleActivePinRatioChange : setSelectedSingleRatio} />
+          </div>
+
           {/* Generated Pins Editor Workspace */}
           {generatedPins.length > 0 && (
             <div className="custom-card p-5 rounded-2xl space-y-4">
@@ -1438,31 +1398,14 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 <h3 className="text-base font-bold text-primary-theme font-heading">
                   {t.generator.resultsTitle}
                 </h3>
-                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">
-                  {t.generator.pinCounterTemplate.replace('{current}', String(activePinIndex + 1)).replace('{total}', String(generatedPins.length))} · {currentPin?.aspectRatio || selectedSingleRatio} ({ASPECT_RATIO_SPECS[currentPin?.aspectRatio || selectedSingleRatio]?.desc})
-                </span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-subtle text-secondary-theme">{activePinIndex + 1} из {generatedPins.length}</span>
               </div>
 
-              {/* Batch Tabs (Pin 1 .. N) with Aspect Ratio Badges */}
-              {generatedPins.length > 1 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5">
-                  {generatedPins.map((p, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActivePinIndex(idx)}
-                      disabled={isSchedulingPin}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                        activePinIndex === idx
-                          ? 'accent-btn shadow-xs'
-                          : 'bg-subtle text-secondary-theme hover:text-primary-theme'
-                      }`}
-                    >
-                      <span>#{idx + 1}</span>
-                      <span className="font-mono text-[10px] opacity-80">({p.aspectRatio})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center justify-between gap-3">
+                <button type="button" onClick={() => setActivePinIndex((index) => Math.max(0, index - 1))} disabled={activePinIndex === 0 || isSchedulingPin} aria-label="Предыдущий пин" className="p-2.5 rounded-xl border border-subtle bg-surface hover:bg-subtle disabled:opacity-30"><ChevronLeft className="w-5 h-5" /></button>
+                <span className="text-xs text-secondary-theme">← / → на клавиатуре</span>
+                <button type="button" onClick={() => setActivePinIndex((index) => Math.min(generatedPins.length - 1, index + 1))} disabled={activePinIndex >= generatedPins.length - 1 || isSchedulingPin} aria-label="Следующий пин" className="p-2.5 rounded-xl border border-subtle bg-surface hover:bg-subtle disabled:opacity-30"><ChevronRight className="w-5 h-5" /></button>
+              </div>
 
               {/* Ratio switcher for active pin */}
               {currentPin && (
@@ -1477,7 +1420,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 flex-wrap">
-                    {ALL_ASPECT_RATIOS.map((item) => (
+                    {SUPPORTED_ASPECT_RATIOS.map((item) => (
                       <button
                         key={item.id}
                         type="button"
@@ -1497,41 +1440,19 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 </div>
               )}
 
-              {/* Title Variations Selector */}
+              {/* Editable pin title */}
               {currentPin && (
                 <div>
-                  <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                    {t.generator.titleOptions}
-                  </label>
-                  <div className="space-y-1.5">
-                    {currentPin.titles.map((titleOption, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        aria-pressed={currentPin.selectedTitle === titleOption}
-                        onClick={() => { void handleTitleSelect(titleOption); }}
-                        disabled={isSchedulingPin}
-                        className={`w-full text-left p-2.5 rounded-xl border text-xs md:text-sm cursor-pointer transition-all flex items-start gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                          currentPin.selectedTitle === titleOption
-                            ? 'border-accent bg-subtle text-primary-theme font-medium shadow-xs'
-                            : 'border-subtle bg-app-input text-secondary-theme hover:bg-subtle'
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
-                            currentPin.selectedTitle === titleOption
-                              ? 'border-accent bg-accent text-white'
-                              : 'border-strong'
-                          }`}
-                        >
-                          {currentPin.selectedTitle === titleOption && (
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
-                          )}
-                        </div>
-                        <span className="flex-1">{titleOption}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <label htmlFor="pin-title" className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">Название пина</label>
+                  <input id="pin-title" type="text" value={currentPin.selectedTitle} maxLength={100} disabled={isSchedulingPin}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      rememberPinTitleSelection(pinTitleSelectionRef.current, currentPin.id, value);
+                      setGeneratedPins((previous) => previous.map((pin) => pin.id === currentPin.id
+                        ? { ...pin, selectedTitle: value, headlineOverlay: value.length > 36 ? value.slice(0, 36) + '...' : value } : pin));
+                    }}
+                    onBlur={() => { void handleTitleSelect(currentPin.selectedTitle); }}
+                    className="w-full px-3 py-2.5 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
               )}
 
@@ -1581,25 +1502,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     rows={4}
                     className="w-full p-3 text-xs md:text-sm bg-app-input border border-subtle rounded-xl text-primary-theme focus:outline-none focus:ring-2 focus:ring-accent leading-relaxed"
                   />
-                </div>
-              )}
-
-              {/* Keywords Targeted */}
-              {currentPin && (
-                <div>
-                  <label className="block text-xs font-semibold text-secondary-theme uppercase tracking-wider mb-1.5">
-                    {t.generator.keywordsIncluded}
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {currentPin.keywords.map((kw, i) => (
-                      <span
-                        key={i}
-                        className="text-xs px-2.5 py-1 rounded-md bg-subtle border border-subtle text-secondary-theme"
-                      >
-                        #{kw}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -1720,6 +1622,73 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                 </button>
               )}
 
+              {/* Add every generated pin to review without leaving this editor. Continue after individual failures. */}
+              {onAddToReview && generatedPins.length > 1 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const board = boards.find((item) => item.id === selectedBoardId);
+                    if (!board || !onAddToReview || isAddingToReview) return;
+                    setIsAddingToReview(true);
+                    setReviewBatchProgress({ completed: 0, total: generatedPins.length, failed: 0 });
+                    setReviewQueueSuccess(false);
+                    const result = await runBatchWithPartialFailures(
+                      generatedPins,
+                      async (pin) => {
+                        const pending = readPendingPinDescription(board.id, pin.id);
+                        const description = pending?.description ?? pin.description;
+                        if (pending) {
+                          const saved = await savePinDescription(board.id, pin.id, pending.description, ++descriptionSaveRevisionRef.current);
+                          if (!saved) throw new Error('Не удалось сохранить описание');
+                        }
+                        const pendingSave = pendingPinSavesRef.current.get(pin.id);
+                        if (pendingSave) await pendingSave;
+                        const title = resolvePinTitleSelection(pinTitleSelectionRef.current, pin.id, pin.selectedTitle);
+                        await onAddToReview({
+                          id: `review-${pin.id}`,
+                          pinId: pin.id,
+                          title,
+                          description,
+                          boardName: board.name,
+                          boardId: board.id,
+                          imageUrl: pin.imageUrl,
+                          aspectRatio: pin.aspectRatio,
+                          reason: t.generator.reviewQueueReason,
+                          trendMetric: '',
+                          scheduledDate: customScheduleDate,
+                          scheduledTime: customScheduleTime,
+                          destinationUrl,
+                          accountHandle: pinterestAccounts.find((account) => account.id === selectedPinterestAccountId)?.username ?? undefined,
+                          accountId: selectedPinterestAccountId || undefined,
+                        });
+                      },
+                      (progress) => setReviewBatchProgress({
+                        completed: progress.completed,
+                        total: progress.total,
+                        failed: progress.failed,
+                      }),
+                    );
+                    setReviewQueueSuccess(result.failures.length === 0);
+                    if (result.failures.length) {
+                      const details = result.failures.slice(0, 5).map(({ item, error }) =>
+                        `${item.selectedTitle || item.id}: ${error instanceof Error ? error.message : 'ошибка добавления'}`);
+                      window.alert(`Добавлено ${result.succeeded} из ${generatedPins.length}. Ошибок: ${result.failures.length}.\n${details.join('\n')}`);
+                    } else {
+                      window.alert(`Все ${result.succeeded} пинов добавлены в очередь проверки.`);
+                    }
+                    } finally {
+                      setIsAddingToReview(false);
+                    }
+                  }}
+                  disabled={!boards.some((item) => item.id === selectedBoardId) || generatedPins.some((pin) => !pin.id || !pin.imageUrl) || isAddingToReview}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+                >
+                  {isAddingToReview && reviewBatchProgress
+                    ? `Добавление в проверку: ${reviewBatchProgress.completed} из ${reviewBatchProgress.total}`
+                    : 'Отправить все пины на проверку'}
+                </button>
+              )}
+
               {/* Action Buttons: Schedule to Calendar */}
               <div className="pt-3 border-t border-subtle flex flex-col sm:flex-row items-center gap-3">
                 <button
@@ -1748,85 +1717,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               )}
             </div>
           )}
-        </div>
-
-        {/* Right Column: Visual Pin Preview & Canvas Controls (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="custom-card p-5 rounded-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-primary-theme font-heading">
-                  {t.generator.canvasTitle}
-                </h3>
-                <p className="text-[11px] text-muted-theme">
-                  {t.generator.canvasSubtitle}
-                </p>
-              </div>
-
-              {/* Visual Style Preset Selector */}
-              <div className="flex items-center gap-1 bg-subtle p-1 rounded-lg">
-                <button
-                  onClick={() => setCanvasStyle('glass')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'glass' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="Frosted glass text card"
-                >
-                  Glass
-                </button>
-                <button
-                  onClick={() => setCanvasStyle('split')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'split' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="High-contrast banner card"
-                >
-                  Split
-                </button>
-                <button
-                  onClick={() => setCanvasStyle('minimal')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'minimal' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="Minimal typography overlay"
-                >
-                  Minimal
-                </button>
-              </div>
-            </div>
-
-            {/* The Dynamic Aspect Ratio Canvas with live ratio switcher */}
-            <PinCanvas
-              data={canvasData}
-              onRatioChange={currentPin ? handleActivePinRatioChange : setSelectedSingleRatio}
-            />
-          </div>
-
-          {/* Pinterest Aspect Ratios & Formats Guide */}
-          <div className="p-4 rounded-xl bg-subtle border border-subtle space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-theme">
-              <Info className="w-3.5 h-3.5 text-accent-ghost" />
-              <span>{t.generator.formatGuideTitle}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-secondary-theme leading-relaxed">
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">2:3 (1000 × 1500)</span>
-                <span>{t.generator.aspectGuideStandard}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">9:16 (1080 × 1920)</span>
-                <span>{t.generator.aspectGuideStory}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">3:4 (1080 × 1440)</span>
-                <span>{t.generator.aspectGuideEditorial}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">1:1 & 4:5</span>
-                <span>{t.generator.aspectGuideSquare}</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
