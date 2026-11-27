@@ -165,6 +165,7 @@ test("SMTP connection refusal falls back to Unisender Go HTTPS API", async () =>
     MAIL_HTTP_API_KEY: "unit-http-api-key-123",
     MAIL_HTTP_API_URL: "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json",
     MAIL_HTTP_API_FROM: undefined,
+    MAIL_HTTP_API_IDEMPOTENCE_ENABLED: "true",
   };
   const result = await mail.sendMail({
     to: "customer@example.invalid",
@@ -206,9 +207,11 @@ test("SMTP failure after the connection stage does not trigger a second delivery
 test("HTTPS API can deliver when SMTP is not configured", async () => {
   const { mail } = loadMail();
   let calls = 0;
+  let requestBody;
   const httpApiClient = {
-    async post() {
+    async post(_url, body) {
       calls += 1;
+      requestBody = body;
       return { status: 200, data: { status: "success", job_id: "job-2" } };
     },
   };
@@ -227,6 +230,7 @@ test("HTTPS API can deliver when SMTP is not configured", async () => {
   }, { env, httpApiClient });
   assert.deepEqual(result, { ok: true });
   assert.equal(calls, 1);
+  assert.equal(requestBody.message.idempotence_key, undefined, "idempotence is opt-in until the provider enables it");
 });
 
 test("HTTPS mail fallback refuses an untrusted or plain HTTP endpoint", async () => {
