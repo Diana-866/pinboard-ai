@@ -1,4 +1,4 @@
--- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.
+-- CI upgrade-compatibility fixture.
 create table public.users (
   id uuid primary key default gen_random_uuid(),
   email text not null,

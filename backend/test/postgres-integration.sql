@@ -1,4 +1,4 @@
--- Run only in a disposable PostgreSQL database after the complete ordered migration chain 010–156.
+-- Run only in a disposable PostgreSQL database after the complete ordered migration chain 010–167.
 do $$
 declare
   v_user uuid := gen_random_uuid();
