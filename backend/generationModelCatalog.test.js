@@ -8,11 +8,12 @@ test("catalog includes only active image models that support aspect_ratio and so
   const models = getAvailableImageModels([
     { id: "costly", price: 2, params: ["aspect_ratio"] },
     { id: "cheap", price: 0.4, params: ["aspect_ratio"] },
+    { id: "provider-only", price: 0.1, params: ["aspect_ratio"] },
     { id: "no-ratio", price: 0.1, params: ["seed"] },
     { id: "deprecated", price: 0.2, params: ["aspect_ratio"], deprecated: true },
     { id: "", price: 0.2, params: ["aspect_ratio"] },
     { id: "bad-price", price: NaN, params: ["aspect_ratio"] },
-  ], 1.5, (value) => Math.ceil(value));
+  ], 1.5, (value) => Math.ceil(value), ["cheap", "costly", "no-ratio", "deprecated", "", "bad-price"]);
 
   assert.deepEqual(models, [
     { id: "cheap", providerPrice: 0.4, creditsPerImage: 1 },
