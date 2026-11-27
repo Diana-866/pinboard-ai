@@ -114,11 +114,11 @@ function logPinterestHttpFailure(status, data) {
   if (providerCode !== undefined) record.provider_code = providerCode;
   if (typeof rawMessage === "string" && rawMessage.trim()) {
     const message = rawMessage
-      .replace(/[\\r\\n\\t]+/g, " ")
-      .replace(/\\bBearer\\s+[^\\s,;]+/gi, "Bearer [redacted]")
-      .replace(/\\b(access_token|refresh_token|client_secret|token|authorization)\\s*[:=]\\s*("[^"]*"|'[^']*'|[^\\s,;]+)/gi, "$1=[redacted]")
-      .replace(/\\beyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b/g, "[redacted]")
-      .replace(/\\bpina_[A-Za-z0-9_-]{8,}\\b/gi, "[redacted]")
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+      .replace(/\b(access_token|refresh_token|client_secret|token|authorization)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1=[redacted]")
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted]")
+      .replace(/\bpina_[A-Za-z0-9_-]{8,}\b/gi, "[redacted]")
       .slice(0, 240);
     record.provider_message = message;
   }
