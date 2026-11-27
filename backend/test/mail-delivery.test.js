@@ -146,6 +146,117 @@ test("sendMail delivers the message it was given and reports success", async () 
   assert.ok(transports[0].connectionTimeout > 0, "the transport keeps its bounded timeouts");
 });
 
+
+test("SMTP connection refusal falls back to Unisender Go HTTPS API", async () => {
+  const smtpError = Object.assign(new Error("connection refused"), {
+    code: "ECONNREFUSED",
+    command: "CONN",
+  });
+  const { mail } = loadMail({ smtpError });
+  let request;
+  const httpApiClient = {
+    async post(url, body, config) {
+      request = { url, body, config };
+      return { status: 200, data: { status: "success", job_id: "job-1" } };
+    },
+  };
+  const env = {
+    ...SMTP_ENV,
+    MAIL_HTTP_API_KEY: "unit-http-api-key-123",
+    MAIL_HTTP_API_URL: "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json",
+    MAIL_HTTP_API_FROM: undefined,
+    MAIL_HTTP_API_IDEMPOTENCE_ENABLED: "true",
+  };
+  const result = await mail.sendMail({
+    to: "customer@example.invalid",
+    subject: "PinPosy verification",
+    text: "Verify your account",
+    html: "<p>Verify your account</p>",
+    messageId: "<stable-message-id@pinposy.invalid>",
+  }, { env, httpApiClient });
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(request.url, env.MAIL_HTTP_API_URL);
+  assert.equal(request.config.headers["X-API-KEY"], env.MAIL_HTTP_API_KEY);
+  assert.equal(request.body.message.recipients[0].email, "customer@example.invalid");
+  assert.equal(request.body.message.from_email, "robot@example.invalid");
+  assert.equal(request.body.message.from_name, "PinPosy");
+  assert.equal(request.body.message.body.plaintext, "Verify your account");
+  assert.equal(request.body.message.body.html, "<p>Verify your account</p>");
+  assert.equal(request.body.message.idempotence_key.length, 64);
+});
+
+test("SMTP failure after the connection stage does not trigger a second delivery", async () => {
+  const smtpError = Object.assign(new Error("temporary error during DATA"), {
+    code: "ETIMEDOUT",
+    command: "DATA",
+  });
+  const { mail } = loadMail({ smtpError });
+  let httpCalls = 0;
+  const httpApiClient = { async post() { httpCalls += 1; throw new Error("must not call HTTP fallback"); } };
+  const env = { ...SMTP_ENV, MAIL_HTTP_API_KEY: "unit-http-api-key-123" };
+  const error = await mail.sendMail({
+    to: "customer@example.invalid",
+    subject: "s",
+    text: "t",
+  }, { env, httpApiClient }).then(() => null, (caught) => caught);
+  assert.equal(error.code, "ETIMEDOUT");
+  assert.equal(httpCalls, 0, "ambiguous SMTP delivery must not be duplicated");
+});
+
+test("HTTPS API can deliver when SMTP is not configured", async () => {
+  const { mail } = loadMail();
+  let calls = 0;
+  let requestBody;
+  const httpApiClient = {
+    async post(_url, body) {
+      calls += 1;
+      requestBody = body;
+      return { status: 200, data: { status: "success", job_id: "job-2" } };
+    },
+  };
+  const env = {
+    MAIL_SMTP_HOST: "",
+    MAIL_SMTP_USER: "",
+    MAIL_SMTP_PASS: "",
+    MAIL_FROM: "PinPosy <robot@example.invalid>",
+    MAIL_HTTP_API_KEY: "unit-http-api-key-123",
+    MAIL_HTTP_API_URL: "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json",
+  };
+  const result = await mail.sendMail({
+    to: "customer@example.invalid",
+    subject: "s",
+    text: "t",
+  }, { env, httpApiClient });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls, 1);
+  assert.equal(requestBody.message.idempotence_key, undefined, "idempotence is opt-in until the provider enables it");
+});
+
+test("HTTPS mail fallback refuses an untrusted or plain HTTP endpoint", async () => {
+  const smtpError = Object.assign(new Error("connection refused"), {
+    code: "ECONNREFUSED",
+    command: "CONN",
+  });
+  const { mail } = loadMail({ smtpError });
+  let calls = 0;
+  const httpApiClient = {
+    async post() { calls += 1; return { status: 200, data: { status: "success" } }; },
+  };
+  const env = {
+    ...SMTP_ENV,
+    MAIL_HTTP_API_KEY: "unit-http-api-key-123",
+    MAIL_HTTP_API_URL: "http://127.0.0.1:3000/send",
+  };
+  const error = await mail.sendMail({
+    to: "customer@example.invalid",
+    subject: "s",
+    text: "t",
+  }, { env, httpApiClient }).then(() => null, (caught) => caught);
+  assert.equal(error.httpStatus, 503);
+  assert.equal(calls, 0);
+});
+
 test("an optional body part is omitted rather than sent as undefined", async () => {
   const { mail, sent } = loadMail();
   await withEnv(SMTP_ENV, () => mail.sendMail({ to: "a@example.invalid", subject: "s", text: "t" }));
