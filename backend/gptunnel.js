@@ -292,17 +292,26 @@ function getImageAspectRatios(params) {
 
 function chooseFallbackImageModel(models, requestedModel, requestedAspectRatio) {
   const list = Array.isArray(models) ? models : [];
-  return list
-    .filter((m) => {
-      if (!m || typeof m.id !== "string" || m.id === requestedModel ||
-          !Number.isFinite(Number(m.price)) || Number(m.price) <= 0 ||
-          m.deprecated === true || !modelHasParam(m.params, "aspect_ratio")) return false;
+  let candidates = list.filter((m) =>
+    m && typeof m.id === "string" && m.id !== requestedModel &&
+    Number.isFinite(Number(m.price)) && Number(m.price) > 0 &&
+    m.deprecated !== true && modelHasParam(m.params, "aspect_ratio"));
+  if (requestedAspectRatio) {
+    const supported = candidates.filter((m) => {
       const ratios = Array.isArray(m.aspect_ratios) ? m.aspect_ratios : getImageAspectRatios(m.params);
-      // A documented list that excludes the requested ratio is a hard mismatch.
-      // An empty list means the provider omitted options, not that the ratio is unsupported.
-      return !requestedAspectRatio || ratios.length === 0 || ratios.includes(requestedAspectRatio);
-    })
-    .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+      return ratios.includes(requestedAspectRatio);
+    });
+    if (supported.length) {
+      candidates = supported;
+    } else {
+      // Prefer unknown schemas over models that explicitly exclude the requested ratio.
+      candidates = candidates.filter((m) => {
+        const ratios = Array.isArray(m.aspect_ratios) ? m.aspect_ratios : getImageAspectRatios(m.params);
+        return ratios.length === 0;
+      });
+    }
+  }
+  return candidates.sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
 }
 
 async function listImageModelsFull() {
