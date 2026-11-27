@@ -4,7 +4,7 @@ process.env.GPTUNNEL_API_KEY = "gpt_8f3a9c2b7d1e5a6f";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const axios = require("axios");
-const { buildImageTaskPayload, generateImage, imageTaskResult } = require("../gptunnel");
+const { buildImageTaskPayload, generateImage, imageTaskResult, withProviderStatus, listImageModelsFull, chooseFallbackImageModel } = require("../gptunnel");
 
 test("Creative Lab v2 image payload puts aspect ratio inside params", () => {
   const payload = buildImageTaskPayload("a quiet forest", "flux-schnell", "9:16");
@@ -49,6 +49,69 @@ test("generateImage sends the persisted provider key and returns the provider ta
   } finally {
     axios.post = originalPost;
   }
+});
+
+
+test("reads GPTunneL params array and exposes the model's exact aspect-ratio options", async () => {
+  const originalGet = axios.get;
+  axios.get = async () => ({
+    data: {
+      models: [{
+        id: "flux-schnell",
+        price: 0.6,
+        params: [{
+          key: "aspect_ratio",
+          type: "enum",
+          options: [{ value: "1:1" }, { value: "3:4" }],
+        }],
+      }],
+    },
+  });
+  try {
+    const models = await listImageModelsFull();
+    assert.deepEqual(models[0], {
+      id: "flux-schnell",
+      price: 0.6,
+      deprecated: false,
+      params: ["aspect_ratio"],
+      aspect_ratios: ["1:1", "3:4"],
+    });
+    assert.equal(
+      chooseFallbackImageModel([
+        { id: "flux-schnell", price: 0.6, params: [{ key: "aspect_ratio", options: [{ value: "1:1" }] }] },
+        { id: "other", price: 0.8, params: [{ key: "aspect_ratio", options: [{ value: "2:3" }] }] },
+      ], "flux-schnell").id,
+      "other",
+      "fallback selection must understand the provider's actual params[] schema"
+    );
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("GPTunneL HTTP failures log provider status/code/message with token redaction", () => {
+  const originalError = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  const error = Object.assign(new Error("Request failed"), {
+    isAxiosError: true,
+    response: {
+      status: 400,
+      data: { code: 3, message: "Invalid aspect_ratio; token=secret-value" },
+    },
+  });
+  try {
+    withProviderStatus(error);
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(error.providerStatus, 400);
+  const record = JSON.parse(output[0]);
+  assert.equal(record.event, "gptunnel.provider_response_failed");
+  assert.equal(record.provider_status, 400);
+  assert.equal(record.provider_code, 3);
+  assert.match(record.provider_message, /aspect_ratio/);
+  assert.equal(output[0].includes("secret-value"), false);
 });
 
 test("imageTaskResult validates and normalizes a completed provider task", () => {
