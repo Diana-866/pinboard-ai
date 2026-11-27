@@ -1785,7 +1785,7 @@ app.get("/boards/:id/pins", requireAuth, async (req, res) => {
 app.get("/generation/models", requireAuth, async (req, res) => {
   try {
     const models = await require("./gptunnel").listImageModelsFull();
-    const available = getAvailableImageModels(models, MARKUP, ceilCredits);
+    const available = getAvailableImageModels(models, MARKUP, ceilCredits, Object.keys(MODEL_PRICES));
     res.json({ models: available });
   } catch (error) {
     logError("index.generation_models_unavailable");
