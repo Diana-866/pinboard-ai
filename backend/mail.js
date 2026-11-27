@@ -38,6 +38,9 @@ function looksLikePlaceholder(value) {
 /** Имена почтовых переменных, которые заполнены заглушкой. Пустой список — конфигурация правдоподобна. */
 function unresolvedMailPlaceholders(env = process.env) {
   const names = ["MAIL_SMTP_HOST", "MAIL_SMTP_USER", "MAIL_SMTP_PASS", "MAIL_FROM"];
+  if (env && env.MAIL_HTTP_API_KEY && looksLikePlaceholder(env.MAIL_HTTP_API_KEY)) {
+    names.push("MAIL_HTTP_API_KEY");
+  }
   return names.filter((name) => looksLikePlaceholder(env && env[name]));
 }
 
@@ -131,7 +134,8 @@ function parseHttpApiFrom(env = process.env) {
 }
 
 function transactionalHttpMailConfigured(env = process.env) {
-  return !!(String(env.MAIL_HTTP_API_KEY || "").trim() && parseHttpApiFrom(env));
+  const apiKey = String(env.MAIL_HTTP_API_KEY || "").trim();
+  return !!(apiKey && !looksLikePlaceholder(apiKey) && parseHttpApiFrom(env));
 }
 
 function getHttpApiMailConfig(env = process.env) {
