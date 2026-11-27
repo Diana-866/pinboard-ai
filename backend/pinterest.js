@@ -1,4 +1,4 @@
-const { logError, logWarning, logInfo } = require("./safeLogger");
+const { logError, logWarning, logInfo, logPinterestHttpFailure } = require("./safeLogger");
 const { settleQuery } = require("./settleQuery");
 const { resolveServiceBaseUrl } = require("./serviceBaseUrl");
 // Pinterest API v5: OAuth 2.0 (вход через Pinterest) и публикация пинов.
@@ -210,6 +210,11 @@ async function callPinterest(method, path, { token, body } = {}) {
       timeout: TIMEOUT_MS,
       validateStatus: () => true,
     });
+    if (res.status >= 400) {
+      // Safe diagnostic: only HTTP status, provider code and redacted provider message.
+      // No request headers/body, account token or raw response object is logged.
+      logPinterestHttpFailure(res.status, res.data);
+    }
     return {
       ok: res.status >= 200 && res.status < 300,
       status: res.status,
