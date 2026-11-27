@@ -1,10 +1,11 @@
 "use strict";
 
-function getAvailableImageModels(models, markup, ceilCredits) {
+function getAvailableImageModels(models, markup, ceilCredits, allowedModelIds) {
   const rows = Array.isArray(models) ? models : [];
   return rows
     .filter((model) => model && typeof model.id === "string"
       && model.id.trim()
+      && (!Array.isArray(allowedModelIds) || allowedModelIds.includes(model.id))
       && Number.isFinite(Number(model.price))
       && Number(model.price) > 0
       && model.deprecated !== true
