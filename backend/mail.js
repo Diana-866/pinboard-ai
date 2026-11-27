@@ -54,8 +54,8 @@ function getImapAuth() {
 
 function getTransactionalSmtpAuth(env = process.env) {
   return {
-    user: env.MAIL_SMTP_USER || env.MAIL_SMTP_USERNAME || "",
-    pass: env.MAIL_SMTP_PASS || env.MAIL_SMTP_PASSWORD || "",
+    user: env.MAIL_SMTP_USER || "",
+    pass: env.MAIL_SMTP_PASS || "",
   };
 }
 
