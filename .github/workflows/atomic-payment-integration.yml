@@ -106,9 +106,9 @@ jobs:
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
           -- The workflow uses plain PostgreSQL; create the Supabase roles expected by migrations.
-          create role anon nologin;
-          create role authenticated nologin;
-          create role service_role nologin bypassrls;
+          execute 'create role anon nologin';
+          execute 'create role authenticated nologin';
+          execute 'create role service_role nologin bypassrls';
           create role supabase_admin nologin;
           create role supabase_auth_admin nologin;
           create role supabase_storage_admin nologin;
