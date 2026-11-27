@@ -25,6 +25,8 @@ test('shared guard requires explicit opt-in and a local disposable database', ()
   assert.match(helper, /localhost\|127\.0\.0\.1\|::1/);
   assert.match(helper, /pinposy_verify_/);
   assert.match(helper, /current_database\(\)/);
+  assert.match(helper, /172\.16\.\*\|172\.17\.\*\|172\.18\.\*\|172\.19\.\*/);
+  assert.match(helper, /PGDATABASE.*pinposy_verify_\[0-9\]\+_/);
   assert.match(helper, /inet_server_addr\(\)/);
   assert.match(helper, /psql_base=\(psql .* -h "\$PGHOST" .* -d "\$PGDATABASE"\)/);
   assert.match(helper, /mktemp -d/);
