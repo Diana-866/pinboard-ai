@@ -3,6 +3,7 @@
 const test = require("node:test");
 require("./helpers/env");
 const assert = require("node:assert/strict");
+const axios = require("axios");
 
 /**
  * Delivery, not transport configuration.
@@ -144,6 +145,123 @@ test("sendMail delivers the message it was given and reports success", async () 
     "a stable message id is what lets a mail client treat a retry as the same email");
   assert.equal(transports.length, 1);
   assert.ok(transports[0].connectionTimeout > 0, "the transport keeps its bounded timeouts");
+});
+
+
+test("SMTP connection refusal falls back to Unisender Go HTTPS API", async () => {
+  const smtpError = Object.assign(new Error("connection refused"), {
+    code: "ECONNREFUSED",
+    command: "CONN",
+  });
+  const { mail } = loadMail({ smtpError });
+  const originalPost = axios.post;
+  let request;
+  axios.post = async (url, body, config) => {
+    request = { url, body, config };
+    return { status: 200, data: { status: "success", job_id: "job-1" } };
+  };
+  try {
+    const result = await withEnv({
+      ...SMTP_ENV,
+      MAIL_HTTP_API_KEY: "test-http-api-key",
+      MAIL_HTTP_API_URL: "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json",
+    }, () => mail.sendMail({
+      to: "customer@example.invalid",
+      subject: "PinPosy verification",
+      text: "Verify your account",
+      html: "<p>Verify your account</p>",
+      messageId: "<stable-message-id@pinposy.invalid>",
+    }));
+    assert.deepEqual(result, { ok: true });
+    assert.equal(request.url, "https://goapi.unisender.ru/ru/transactional/api/v1/email/send.json");
+    assert.equal(request.config.headers["X-API-KEY"], "test-http-api-key");
+    assert.equal(request.body.message.recipients[0].email, "customer@example.invalid");
+    assert.equal(request.body.message.from_email, "robot@example.invalid");
+    assert.equal(request.body.message.from_name, "PinPosy");
+    assert.equal(request.body.message.body.plaintext, "Verify your account");
+    assert.equal(request.body.message.body.html, "<p>Verify your account</p>");
+    assert.equal(request.body.message.idempotence_key.length, 64);
+  } finally {
+    axios.post = originalPost;
+  }
+});
+
+test("SMTP failure after the connection stage does not trigger a second delivery", async () => {
+  const smtpError = Object.assign(new Error("temporary error during DATA"), {
+    code: "ETIMEDOUT",
+    command: "DATA",
+  });
+  const { mail } = loadMail({ smtpError });
+  const originalPost = axios.post;
+  let httpCalls = 0;
+  axios.post = async () => { httpCalls += 1; throw new Error("must not call HTTP fallback"); };
+  try {
+    const error = await withEnv({
+      ...SMTP_ENV,
+      MAIL_HTTP_API_KEY: "test-http-api-key",
+    }, () => mail.sendMail({
+      to: "customer@example.invalid",
+      subject: "s",
+      text: "t",
+    }).then(() => null, (caught) => caught));
+    assert.equal(error.code, "ETIMEDOUT");
+    assert.equal(httpCalls, 0, "ambiguous SMTP delivery must not be duplicated");
+  } finally {
+    axios.post = originalPost;
+  }
+});
+
+test("HTTPS API can deliver when SMTP is not configured", async () => {
+  const { mail } = loadMail();
+  const originalPost = axios.post;
+  let calls = 0;
+  axios.post = async () => {
+    calls += 1;
+    return { status: 200, data: { status: "success", job_id: "job-2" } };
+  };
+  try {
+    const result = await withEnv({
+      MAIL_SMTP_HOST: undefined,
+      MAIL_SMTP_USER: undefined,
+      MAIL_SMTP_PASS: undefined,
+      MAIL_FROM: "PinPosy <robot@example.invalid>",
+      MAIL_HTTP_API_KEY: "test-http-api-key",
+    }, () => mail.sendMail({
+      to: "customer@example.invalid",
+      subject: "s",
+      text: "t",
+    }));
+    assert.deepEqual(result, { ok: true });
+    assert.equal(calls, 1);
+  } finally {
+    axios.post = originalPost;
+  }
+});
+
+test("HTTPS mail fallback refuses an untrusted or plain HTTP endpoint", async () => {
+  const smtpError = Object.assign(new Error("connection refused"), {
+    code: "ECONNREFUSED",
+    command: "CONN",
+  });
+  const { mail } = loadMail({ smtpError });
+  const originalPost = axios.post;
+  let calls = 0;
+  axios.post = async () => { calls += 1; return { status: 200, data: { status: "success" } }; };
+  try {
+    const error = await withEnv({
+      ...SMTP_ENV,
+      MAIL_HTTP_API_KEY: "test-http-api-key",
+      MAIL_HTTP_API_URL: "http://127.0.0.1:3000/send",
+    }, () => mail.sendMail({
+      to: "customer@example.invalid",
+      subject: "s",
+      text: "t",
+    }).then(() => null, (caught) => caught));
+    assert.equal(error.httpStatus, 503);
+    assert.equal(calls, 0);
+  } finally {
+    axios.post = originalPost;
+  }
 });
 
 test("an optional body part is omitted rather than sent as undefined", async () => {
