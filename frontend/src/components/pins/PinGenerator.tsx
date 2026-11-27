@@ -1496,6 +1496,10 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
         {/* Right Column: Pin preview and editor */}
         <div className="lg:col-span-8 space-y-4">
+          <div className="custom-card p-4 rounded-2xl">
+            <PinCanvas data={canvasData} onRatioChange={currentPin ? handleActivePinRatioChange : setSelectedSingleRatio} />
+          </div>
+
           {/* Generated Pins Editor Workspace */}
           {generatedPins.length > 0 && (
             <div className="custom-card p-5 rounded-2xl space-y-4">
@@ -1822,81 +1826,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               )}
             </div>
           )}
-          <div className="custom-card p-5 rounded-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-primary-theme font-heading">
-                  {t.generator.canvasTitle}
-                </h3>
-                <p className="text-[11px] text-muted-theme">
-                  {t.generator.canvasSubtitle}
-                </p>
-              </div>
-
-              {/* Visual Style Preset Selector */}
-              <div className="flex items-center gap-1 bg-subtle p-1 rounded-lg">
-                <button
-                  onClick={() => setCanvasStyle('glass')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'glass' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="Frosted glass text card"
-                >
-                  Glass
-                </button>
-                <button
-                  onClick={() => setCanvasStyle('split')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'split' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="High-contrast banner card"
-                >
-                  Split
-                </button>
-                <button
-                  onClick={() => setCanvasStyle('minimal')}
-                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer ${
-                    canvasStyle === 'minimal' ? 'bg-surface text-primary-theme shadow-xs' : 'text-secondary-theme'
-                  }`}
-                  title="Minimal typography overlay"
-                >
-                  Minimal
-                </button>
-              </div>
-            </div>
-
-            {/* The Dynamic Aspect Ratio Canvas with live ratio switcher */}
-            <PinCanvas
-              data={canvasData}
-              onRatioChange={currentPin ? handleActivePinRatioChange : setSelectedSingleRatio}
-            />
-          </div>
-
-          {/* Pinterest Aspect Ratios & Formats Guide */}
-          <div className="p-4 rounded-xl bg-subtle border border-subtle space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-theme">
-              <Info className="w-3.5 h-3.5 text-accent-ghost" />
-              <span>{t.generator.formatGuideTitle}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-secondary-theme leading-relaxed">
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">2:3 (1000 × 1500)</span>
-                <span>{t.generator.aspectGuideStandard}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">9:16 (1080 × 1920)</span>
-                <span>{t.generator.aspectGuideStory}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">3:4 (1080 × 1440)</span>
-                <span>{t.generator.aspectGuideEditorial}</span>
-              </div>
-              <div className="p-2 rounded-lg bg-surface border border-subtle">
-                <span className="font-bold text-primary-theme block font-mono">1:1 & 4:5</span>
-                <span>{t.generator.aspectGuideSquare}</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
