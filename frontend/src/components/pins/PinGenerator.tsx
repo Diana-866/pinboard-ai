@@ -3,6 +3,7 @@ import {
   Sparkles,
   Calendar,
   Layers,
+  Grid,
   Check,
   RefreshCw,
   ExternalLink,
@@ -1147,6 +1148,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                     <span className="block text-[11px] text-muted-theme mt-1">{item.res} · выбранный вертикальный формат</span>
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 
