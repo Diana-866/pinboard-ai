@@ -1,150 +1,222 @@
 # Что нужно от вас: пошагово
 
-Этот файл — только для владельца. Здесь обычные действия: что открыть, что нажать, что прислать.
-Технические подробности — в `docs/USER_ACTIONS.md` и `docs/PLAN_14_DAYS.md`, туда можно не смотреть.
+Этот файл — инструкция владельцу для целевого VPS **AdminVPS Start, Россия, Ubuntu 24.04, 4 vCPU, 8 ГБ RAM, 80 ГБ NVMe**. Конфигурация рассчитана на этот размер: минимальный self-hosted Supabase без Studio, Analytics, Realtime, Imgproxy и pooler плюс PinPosy API, worker публикации, worker удаления и Caddy.
 
-Общее правило: **пароли, ключи и токены в чат не присылайте**. Их вписывают прямо на сервере
-в файл `deploy/.env`. Присылайте только то, что указано в пункте «что прислать».
+**Безопасность:** пароли, JWT, API-ключи, токены Pinterest и Prodamus не присылайте в чат, скриншоты или GitHub. Вводите секреты прямо на сервере в файлы `deploy/supabase/.env` и `deploy/.env`. Не открывайте наружу PostgreSQL (5432) или Kong (8000). Наружу нужны только SSH, HTTP и HTTPS.
 
 ---
 
-## 1. Сервер: дождаться включения (сейчас)
+## 1. VPS AdminVPS Start
 
-Сервер уже куплен в ADMINVPS, статус — «В обработке». Это нормально: в России активация занимает
-до 3 дней, письмо придёт на вашу почту.
+В панели ADMINVPS проверьте, что выбран именно такой сервер:
 
-**Когда статус станет «Активен»:**
+- Регион: Россия
+- ОС: Ubuntu 24.04 LTS
+- CPU: 4 ядра
+- RAM: 8 ГБ
+- Диск: 80 ГБ NVMe
 
-1. Откройте сайт ADMINVPS → войдите в аккаунт → слева нажмите **«Серверы»**.
-2. Откройте ваш сервер. Запишите себе **IP-адрес** (набор цифр вида `123.45.67.89`) и **логин**
-   (обычно `root`).
-3. Слева нажмите **«SSH ключи»** → **«Добавить ключ»**.
-4. В поле «Имя» вставьте: `pinposy-deploy`
-5. В поле «Ключ» вставьте одну строку целиком:
-   ```
-   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdEAI+5YMDg/B2dbwGt+vNJ2q48eB2mCXiAl2imAVov pinposy-deploy
-   ```
-6. Нажмите **«Сохранить»** (или «Добавить»).
-7. Если в карточке сервера есть выбор «вход по паролю / по ключу» — выберите **по ключу**.
+Не подключайте платные дополнительные услуги или marketplace-образы без отдельного согласования. Запишите публичный IPv4 и логин SSH. Приватный SSH-ключ остаётся только на вашем компьютере.
 
-**Что должно получиться:** в списке ключей появился `pinposy-deploy`, сервер показывает статус
-«Активен».
+### Первый вход
 
-**Что прислать в ответ:** три пункта — IP-адрес, логин, версию системы (например «Ubuntu 24.04»).
-Скриншот карточки сервера тоже подойдёт, если на нём видно IP. Пароль root присылать не нужно,
-но сохраните его у себя: он понадобится, только если вход по ключу не сработает.
+В Windows откройте PowerShell:
+
+```powershell
+ssh root@ВАШ_IP
+```
+
+Если AdminVPS выдал другой логин, замените `root`. При первом подключении проверьте fingerprint сервера в панели провайдера и подтвердите его только при совпадении.
+
+### Обновить Ubuntu и включить firewall
+
+Выполните на сервере:
+
+```bash
+apt update
+apt full-upgrade -y
+apt install -y ca-certificates curl git openssl ufw fail2ban
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw enable
+ufw status
+```
+
+Проверьте, что в списке разрешены SSH, 80 и 443. **Не добавляйте правила для 5432 или 8000.** Перед отключением SSH-входа по паролю сначала проверьте вход по ключу в новом окне PowerShell, иначе можно потерять доступ к серверу.
 
 ---
 
-## 2. Развёртывание: после того, как сервер включат
+## 2. Docker и файлы PinPosy
 
-Эти шаги делаются один раз, команды копируются целиком и вставляются в чёрное окно терминала
-(ассистент подскажет, как его открыть). После каждого блока — проверка, что получилось.
+### Установить Docker Engine + Compose
 
-**Шаг 1. Установить Docker.**
-
-Сначала попробуйте первый вариант. Если на последней команде появится ошибка — переходите ко второму.
-
-Первый вариант (официальный установщик Docker):
-
-```
-sudo apt update
-sudo apt install -y ca-certificates curl git
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-Второй вариант (пакеты самой Ubuntu 24.04, если первый не сработал):
-
-```
-sudo apt update
-sudo apt install -y docker.io docker-compose-v2 git
-```
-
-**Проверка, что Docker встал.** Вставьте две команды и посмотрите на ответ:
-
-```
+```bash
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
 docker --version
 docker compose version
 ```
 
-Первая должна напечатать `Docker version 2…` (или `2…` для docker.io), вторая — `Docker Compose
-version v2…`. Если вторая пишет «command not found» — установка не удалась, пришлите ответ первой
-команды.
+Обе последние команды должны показать версии, а не `command not found`.
 
-**Шаг 2. Скачать программу на сервер.**
+### Скачать проект
 
-```
+Для чистой установки:
+
+```bash
+mkdir -p /opt/pinposy
+cd /opt/pinposy
 git clone https://github.com/Diana-866/pinboard-ai.git
-cd pinboard-ai
+cd /opt/pinboard-ai
 ```
 
-**Что должно получиться:** появился каталог `pinboard-ai`, команда `ls` показывает внутри
-`deploy`, `backend`, `frontend`.
+Если репозиторий к этому моменту станет приватным, используйте SSH deploy key или GitHub CLI, авторизованный на сервере. Не вставляйте PAT в URL клонирования и не сохраняйте его в shell history.
 
-**Шаг 3. Заполнить настройки.** Впишите значения прямо на сервере, в чат их не присылайте:
+Создайте общую внутреннюю сеть для двух Compose-проектов:
 
-```
-cp deploy/.env.example deploy/.env
-nano deploy/.env
+```bash
+docker network inspect pinposy-internal >/dev/null 2>&1 || docker network create pinposy-internal
 ```
 
-В открывшемся редакторе заполните строки, которые просят значения (адрес и ключ базы, ключ AI,
-почта, Prodamus, Pinterest). Сохранить: `Ctrl+O`, `Enter`, выйти: `Ctrl+X`.
+### Настроить Supabase secrets
 
-**Шаг 4. Поднять базу (Supabase) — минимальный набор для 8 ГБ.**
+Скопируйте пример конфигурации:
 
-```
+```bash
 cp deploy/supabase/.env.example deploy/supabase/.env
 nano deploy/supabase/.env
 ```
 
-В редакторе придумайте и впишите `POSTGRES_PASSWORD`, затем создайте `JWT_SECRET` командой
-`openssl rand -base64 32` и впишите её результат в строку `JWT_SECRET=`. Сохраните: `Ctrl+O`,
-`Enter`, выйти: `Ctrl+X`.
+Сгенерируйте два секрета. Пароль Postgres — hex, чтобы он безопасно помещался в connection URL:
 
-Затем сгенерируйте два ключа и сразу подставьте их в конфигурацию (команда печатает ключи;
-они же потом вписываются в `deploy/.env`, поэтому скопируйте вывод себе в блокнот):
-
-```
-node backend/scripts/generate-supabase-keys.js "$(grep '^JWT_SECRET=' deploy/supabase/.env | cut -d= -f2-)"
+```bash
+openssl rand -hex 32
+openssl rand -base64 48
 ```
 
-Она напечатает две строки `ANON_KEY=…` и `SERVICE_ROLE_KEY=…`. Подставьте их одной командой
-(вместо слов-заглушек — ваши значения из вывода):
+Первое значение впишите в `POSTGRES_PASSWORD`, второе — в `JWT_SECRET`. Не добавляйте пробелы вокруг `=`. Сохраните файл, затем:
 
+```bash
+chmod 600 deploy/supabase/.env
 ```
-sed -i "s/ANON_KEY_VALUE_HERE/ВАШ_ANON_KEY/; s/SERVICE_ROLE_KEY_VALUE_HERE/ВАШ_SERVICE_ROLE_KEY/" deploy/supabase/kong.yml
+
+Сгенерируйте API keys из Supabase JWT secret в защищённый файл:
+
+```bash
+set -a
+. deploy/supabase/.env
+set +a
+node backend/scripts/generate-supabase-keys.js "$JWT_SECRET" > /root/pinposy-supabase-keys.txt
+chmod 600 /root/pinposy-supabase-keys.txt
+cat /root/pinposy-supabase-keys.txt
+```
+
+В выводе будут `ANON_KEY` и `SERVICE_ROLE_KEY`. Это секретные значения. Не отправляйте вывод никому.
+
+Откройте `deploy/supabase/.env` и `deploy/supabase/kong.yml`:
+
+```bash
+nano deploy/supabase/.env
+nano deploy/supabase/kong.yml
+```
+
+В `deploy/supabase/.env` впишите оба ключа. В `kong.yml` замените `ANON_KEY_VALUE_HERE` и `SERVICE_ROLE_KEY_VALUE_HERE` соответствующими значениями. Не используйте `sed` с секретами: ручная замена в редакторе предотвращает случайную порчу значения спецсимволами.
+
+В `deploy/supabase/.env` оставьте:
+
+```dotenv
+API_EXTERNAL_URL="http://supabase-kong:8000"
+```
+
+### Запустить Supabase
+
+```bash
+docker compose -f deploy/supabase/docker-compose.yml config -q
 docker compose -f deploy/supabase/docker-compose.yml up -d
 docker compose -f deploy/supabase/docker-compose.yml ps
+docker compose -f deploy/supabase/docker-compose.yml exec -T db pg_isready -U supabase_admin -d postgres
 ```
 
-**Что должно получиться:** `ps` показывает 5 сервисов со статусом `Up` (`db`, `kong`, `rest`,
-`auth`, `storage`).
+Ожидается, что `db`, `kong`, `rest`, `auth` и `storage` работают, а `pg_isready` сообщает, что база принимает соединения.
 
-**Шаг 5. Применить таблицы (миграции) и собрать остальное.** Ассистент даст команды в этот
-момент — они зависят от вывода шага 4.
+Проверьте Kong локально на сервере:
 
-**Что прислать в ответ:** текст, который напечатают команды проверки (строки с `OK`, `applied`,
-`200`). Первые 20 строк журнала, если что-то не запустилось.
+```bash
+set -a
+. deploy/supabase/.env
+set +a
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" -H "apikey: $ANON_KEY" http://127.0.0.1:8000/rest/v1/
+```
+
+Порт 8000 привязан только к loopback и не должен быть доступен извне.
+
+### Применить миграции PinPosy
+
+Миграции запускаются через официальный проектный скрипт `deploy/apply-migrations.cjs`, который ведёт checksum-журнал и останавливается при изменении уже применённого SQL.
+
+На сервере запустите одноразовый Node 22 контейнер в общей Docker-сети. Он установит только клиент PostgreSQL, подключится к контейнеру `db` и применит миграции:
+
+```bash
+set -a
+. deploy/supabase/.env
+set +a
+docker run --rm --network pinposy-internal \
+  -v "$PWD:/workspace:ro" -w /workspace \
+  -e DATABASE_URL="postgres://supabase_admin:$POSTGRES_PASSWORD@db:5432/postgres" \
+  node:22-bookworm-slim bash -lc \
+  'apt-get update && apt-get install -y --no-install-recommends postgresql-client && node deploy/apply-migrations.cjs'
+```
+
+Дождитесь сообщения об успешном применении миграций. Если скрипт остановился на ошибке, не повторяйте вручную отдельные SQL-файлы и не удаляйте Docker volumes — сохраните вывод ошибки.
+
+### Настроить backend и запустить PinPosy
+
+```bash
+cp deploy/.env.example deploy/.env
+nano deploy/.env
+chmod 600 deploy/.env
+```
+
+Обязательно заполните:
+
+- `SUPABASE_URL=http://supabase-kong:8000` — без `/rest/v1`;
+- `SUPABASE_ANON_KEY` и `SUPABASE_SERVICE_ROLE_KEY` — ключи из Supabase;
+- отдельный `JWT_SECRET` для сессий PinPosy (можно сгенерировать `openssl rand -hex 32`; это не Supabase JWT secret);
+- `GPTUNNEL_API_KEY`;
+- `PINTEREST_CLIENT_ID`, `PINTEREST_CLIENT_SECRET`, `PINTEREST_REDIRECT_URI`, `PINTEREST_TOKEN_ENCRYPTION_KEY`;
+- `PRODAMUS_*` — только после отдельной проверки платёжных настроек;
+- SMTP/HTTPS-почту по инструкции в разделе 7;
+- `CADDY_DOMAIN=www.pinposy.com`, `CADDY_EMAIL`;
+- `PUBLIC_BACKEND_URL`, `BACKEND_URL`, `FRONTEND_URL`, `PINPOSY_BACKEND_URL` — актуальные HTTPS-адреса.
+
+Не включайте demo payment, dev top-up или self-select tariff в production.
+
+Проверьте конфигурацию и запустите:
+
+```bash
+docker compose -f deploy/docker-compose.yml config -q
+docker compose -f deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.yml ps
+curl -fsS https://www.pinposy.com/health
+```
+
+Для HTTPS домен должен указывать A-записью на IP сервера, а входящие 80/443 должны быть разрешены. DNS не меняйте без отдельного согласования.
 
 ---
 
-## 3. Где хранить резервные копии базы
+## 3. Резервные копии
 
-Нужно выбрать один вариант — напишите в ответ номер:
+Первый бэкап базы создайте до реальных пользователей и повторяйте ежедневно. Скрипт `deploy/backup.sh` проверяет дамп через `pg_restore --list` и удаляет старые копии только после успешной проверки нового файла.
 
-1. **Дополнительный диск или хранилище у ADMINVPS** — проще всего, небольшой плюс к счёту.
-2. **Объектное хранилище в Beget** (там же, где домен и почта) — отдельный счёт, зато не зависит
-   от сервера.
-3. **Скачивать копию на ваш компьютер** — бесплатно, но компьютер должен быть включён в момент
-   копирования.
+Пока отдельное внешнее хранилище не выбрано, сохраняйте бэкап на сервере для быстрого восстановления и **дополнительно копируйте зашифрованный файл на свой компьютер**. Не храните единственную копию на том же VPS и не загружайте незашифрованный дамп в публичное облако.
 
-Почему не «на том же сервере»: если сервер потеряется, копия потеряется вместе с ним.
+Восстановление — отдельная операция: сначала остановить приложение, сделать копию текущей базы и проверить дамп на временной базе. Не выполнять `docker compose down -v`, `docker volume rm` или удаление каталогов с данными.
 
 ---
 
