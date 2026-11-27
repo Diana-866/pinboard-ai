@@ -8,6 +8,7 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   Info,
   Shuffle,
@@ -77,6 +78,8 @@ const ALL_ASPECT_RATIOS: {
   { id: '1:1', label: '1:1', res: '1080 × 1080 px', name: 'Square' },
 ];
 
+const SUPPORTED_ASPECT_RATIOS: typeof ALL_ASPECT_RATIOS = ALL_ASPECT_RATIOS.filter((item) => item.id === '9:16');
+
 export const PinGenerator: React.FC<PinGeneratorProps> = ({
   boards,
   initialTopic,
@@ -115,6 +118,32 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   // board fetched for the previously selected account.
   const [pinterestBoardsAccountId, setPinterestBoardsAccountId] = useState<string>('');
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setModelCatalogError('');
+    apiRequest('/generation/models')
+      .then((data) => {
+        if (!active) return;
+        const rows = Array.isArray(data?.models)
+          ? data.models.filter((model: any) => model && typeof model.id === 'string'
+            && model.id.trim() && Number.isFinite(Number(model.creditsPerImage))
+            && Number(model.creditsPerImage) > 0)
+          : [];
+        setImageModels(rows);
+        setSelectedImageModel((current) => rows.some((model: any) => model.id === current)
+          ? current
+          : rows[0]?.id || '');
+        if (!rows.length) setModelCatalogError('Провайдер не вернул доступные модели изображений.');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setImageModels([]);
+        setSelectedImageModel('');
+        setModelCatalogError(error instanceof Error ? error.message : 'Не удалось загрузить модели изображений.');
+      });
+    return () => { active = false; };
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -194,11 +223,11 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
 
   // Aspect ratio mode: single uniform format or mix/randomizer
   const [aspectMode, setAspectMode] = useState<'single' | 'randomizer'>('single');
-  const [selectedSingleRatio, setSelectedSingleRatio] = useState<SupportedAspectRatio>('2:3');
+  const [selectedSingleRatio, setSelectedSingleRatio] = useState<SupportedAspectRatio>('9:16');
   const [randomizerRatios, setRandomizerRatios] = useState<Record<SupportedAspectRatio, boolean>>({
-    '2:3': true,
+    '2:3': false,
     '9:16': true,
-    '3:4': true,
+    '3:4': false,
     '4:5': false,
     '1:1': false,
   });
@@ -227,6 +256,9 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   }, [initialBoardId, boards]);
 
   const [tone, setTone] = useState<string>('inspirational');
+  const [imageModels, setImageModels] = useState<Array<{ id: string; providerPrice: number; creditsPerImage: number }>>([]);
+  const [selectedImageModel, setSelectedImageModel] = useState('');
+  const [modelCatalogError, setModelCatalogError] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
   const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
@@ -263,6 +295,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
   const [isAddingToReview, setIsAddingToReview] = useState(false);
   const [reviewQueueSuccess, setReviewQueueSuccess] = useState(false);
+  const [reviewBatchProgress, setReviewBatchProgress] = useState<{ completed: number; total: number; failed: number } | null>(null);
   const [recoverableGenerations, setRecoverableGenerations] = useState<Array<{
     key: string;
     status: 'processing' | 'completed' | 'failed' | 'unknown' | 'not_found' | 'expired';
@@ -516,6 +549,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
         tone,
         content_language: aiContentLanguage || 'en',
         count: pinCount,
+        model: selectedImageModel,
         aspect_ratio: aspectRatio,
         mixed_ratios: targetRatios,
       };
@@ -1154,7 +1188,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
               {/* Mode A: Single Uniform Aspect Ratio Selector */}
               {aspectMode === 'single' ? (
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {ALL_ASPECT_RATIOS.map((item) => {
+                  {SUPPORTED_ASPECT_RATIOS.map((item) => {
                     const isSelected = selectedSingleRatio === item.id;
                     return (
                       <button
@@ -1391,7 +1425,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
             <div className="pt-2">
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || isLoadingSavedPins}
+                disabled={isGenerating || isLoadingSavedPins || !selectedImageModel || imageModels.length === 0}
                 className="w-full accent-btn py-3 px-4 rounded-xl text-xs md:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isGenerating ? (
@@ -1477,7 +1511,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 flex-wrap">
-                    {ALL_ASPECT_RATIOS.map((item) => (
+                    {SUPPORTED_ASPECT_RATIOS.map((item) => (
                       <button
                         key={item.id}
                         type="button"
