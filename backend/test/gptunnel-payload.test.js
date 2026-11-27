@@ -80,13 +80,31 @@ test("reads GPTunneL params array and exposes the model's exact aspect-ratio opt
       chooseFallbackImageModel([
         { id: "flux-schnell", price: 0.6, params: [{ key: "aspect_ratio", options: [{ value: "1:1" }] }] },
         { id: "other", price: 0.8, params: [{ key: "aspect_ratio", options: [{ value: "2:3" }] }] },
-      ], "flux-schnell").id,
+      ], "flux-schnell", "2:3").id,
       "other",
       "fallback selection must understand the provider's actual params[] schema"
     );
   } finally {
     axios.get = originalGet;
   }
+});
+
+
+test("fallback prefers models that document support for the requested aspect ratio", () => {
+  const chosen = chooseFallbackImageModel([
+    { id: "square-only", price: 0.1, params: ["aspect_ratio"], aspect_ratios: ["1:1"] },
+    { id: "unknown-options", price: 0.2, params: ["aspect_ratio"], aspect_ratios: [] },
+    { id: "ratio-compatible", price: 0.5, params: ["aspect_ratio"], aspect_ratios: ["2:3", "3:4"] },
+  ], "flux-schnell", "2:3");
+  assert.equal(chosen.id, "ratio-compatible");
+});
+
+test("fallback returns null when every catalog model excludes the requested ratio", () => {
+  const chosen = chooseFallbackImageModel([
+    { id: "square-only", price: 0.1, params: ["aspect_ratio"], aspect_ratios: ["1:1"] },
+    { id: "landscape-only", price: 0.2, params: ["aspect_ratio"], aspect_ratios: ["16:9"] },
+  ], "flux-schnell", "2:3");
+  assert.equal(chosen, null);
 });
 
 test("GPTunneL HTTP failures log provider status/code/message with token redaction", () => {
