@@ -431,6 +431,12 @@ jobs:
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/159_atomic_prodamus_receipt_entitlement_fulfillment.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/160_prodamus_receipt_local_payment_binding_guard.sql
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/161_restrict_granted_decisions_to_atomic_fulfillment.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/162_restore_subscription_activation_email_enqueue.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/163_admin_inventory_claim_presence_not_token.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/164_login_attempt_lockout.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/165_requeue_email_outbox.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/166_user_terms_consent.sql
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 -f db/migrations/167_daily_recommendations.sql
       - name: Verify Pinterest credentials are disconnected for deletion-pending accounts
         env:
           PGPASSWORD: postgres
