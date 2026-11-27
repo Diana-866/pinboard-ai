@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+          with:
+            fetch-depth: 0
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -100,12 +102,31 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
+      - name: Provision Supabase roles for disposable schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              execute 'create role anon nologin';
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              execute 'create role authenticated nologin';
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              execute 'create role service_role nologin bypassrls';
+            end if;
+          end;
+          $roles$;
+          SQL
       - name: Prepare disposable schema
         env:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pinposy_test -v ON_ERROR_STOP=1 <<'SQL'
-          -- CI upgrade-compatibility fixture. Cluster roles are provisioned by verify-integration.ps1.
+          -- CI upgrade-compatibility fixture. Supabase roles are provisioned by the preceding workflow step.
           create table public.users (
             id uuid primary key default gen_random_uuid(),
             email text not null,
