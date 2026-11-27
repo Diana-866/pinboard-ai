@@ -349,6 +349,33 @@ test("a client-side rejection is journaled as a known failure, so the operator m
   assert.match(journal[0].params.p_error, /HTTP 400/);
 });
 
+test("Pinterest publish logs provider HTTP status, code and message", async () => {
+  const { pinterest, state } = loadPinterest();
+  withRpcs(state);
+  state.postResponses.push({
+    status: 400,
+    data: { code: 2, message: "The selected board is not available" },
+    headers: {},
+  });
+
+  const original = console.error;
+  const output = [];
+  console.error = (value) => output.push(value);
+  try {
+    await rejection(pinterest.publishPin(USER_ID, PIN_ID, BOARD_ID));
+  } finally {
+    console.error = original;
+  }
+
+  const record = output.map((line) => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).find((entry) => entry && entry.event === "pinterest.api_response_failed");
+  assert.ok(record, "provider rejection should produce a structured diagnostic");
+  assert.equal(record.provider_status, 400);
+  assert.equal(record.provider_code, 2);
+  assert.equal(record.provider_message, "The selected board is not available");
+});
+
 test("a 5xx is journaled as an unknown outcome and blocks a resend", async () => {
   const { pinterest, state } = loadPinterest();
   withRpcs(state);
