@@ -3,7 +3,6 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  Sliders,
   Check,
   RefreshCw,
   ExternalLink,
@@ -11,9 +10,6 @@ import {
   ChevronLeft,
   ChevronLeft,
   ArrowRight,
-  Info,
-  Shuffle,
-  Grid,
   Plus,
   Minus,
   CalendarDays,
@@ -79,7 +75,8 @@ const ALL_ASPECT_RATIOS: {
   { id: '1:1', label: '1:1', res: '1080 × 1080 px', name: 'Square' },
 ];
 
-const SUPPORTED_ASPECT_RATIOS: typeof ALL_ASPECT_RATIOS = ALL_ASPECT_RATIOS.filter((item) => item.id === '9:16');
+// Keep 9:16 as the only selectable format until the provider's other ratios are validated.
+const TEMPORARILY_AVAILABLE_ASPECT_RATIOS: typeof ALL_ASPECT_RATIOS = ALL_ASPECT_RATIOS.filter((item) => item.id === '9:16');
 
 export const PinGenerator: React.FC<PinGeneratorProps> = ({
   boards,
@@ -222,16 +219,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     setTopic(initialTopic || '');
   }, [initialTopic]);
 
-  // Aspect ratio mode: single uniform format or mix/randomizer
-  const [aspectMode, setAspectMode] = useState<'single' | 'randomizer'>('single');
   const [selectedSingleRatio, setSelectedSingleRatio] = useState<SupportedAspectRatio>('9:16');
-  const [randomizerRatios, setRandomizerRatios] = useState<Record<SupportedAspectRatio, boolean>>({
-    '2:3': false,
-    '9:16': true,
-    '3:4': false,
-    '4:5': false,
-    '1:1': false,
-  });
 
   // Intelligent Board Recommendation (правило вынесено в src/lib/boardRecommendation.ts, §135)
   const recommendedBoard = useMemo(() => pickRecommendedBoard(boards, topic), [topic, boards]);
@@ -261,7 +249,7 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
   const [selectedImageModel, setSelectedImageModel] = useState('');
   const [modelCatalogError, setModelCatalogError] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
-  const [canvasStyle, setCanvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
+  const [canvasStyle] = useState<'minimal' | 'glass' | 'split'>('glass');
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingSavedPins, setIsLoadingSavedPins] = useState(false);
@@ -503,17 +491,6 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     'Amalfi Coast 5-day travel guide: hidden scenic viewpoints & photo spots',
   ];
 
-  const handleRatioToggle = (ratioKey: SupportedAspectRatio) => {
-    setRandomizerRatios((prev) => {
-      const next = { ...prev, [ratioKey]: !prev[ratioKey] };
-      // Ensure at least one ratio is checked
-      if (!Object.values(next).some(Boolean)) {
-        return prev;
-      }
-      return next;
-    });
-  };
-
   const handleGenerate = async () => {
     const currentTopic = getExplicitGenerationTopic(topic);
     if (!currentTopic) {
@@ -529,22 +506,13 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
     try {
       const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
-      // Determine active aspect ratios
-      let targetRatios: SupportedAspectRatio[];
-      if (aspectMode === 'single') {
-        targetRatios = [selectedSingleRatio];
-      } else {
-        targetRatios = (Object.keys(randomizerRatios) as SupportedAspectRatio[]).filter(
-          (k) => randomizerRatios[k]
-        );
-        if (targetRatios.length === 0) targetRatios = ['2:3'];
-      }
+      const targetRatios: SupportedAspectRatio[] = [selectedSingleRatio];
 
       if (!selectedBoard) {
         throw new Error(t.generator.errorNoBoard);
       }
 
-      const aspectRatio = aspectMode === 'single' ? selectedSingleRatio : 'mixed';
+      const aspectRatio = selectedSingleRatio;
       const requestBody = {
         topic: currentTopic,
         tone,
@@ -1171,95 +1139,15 @@ export const PinGenerator: React.FC<PinGeneratorProps> = ({
                   </p>
                 </div>
 
-                {/* Aspect Mode Switch */}
-                <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-subtle">
-                  <button
-                    type="button"
-                    onClick={() => setAspectMode('single')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                      aspectMode === 'single'
-                        ? 'accent-btn font-semibold shadow-xs'
-                        : 'text-secondary-theme hover:text-primary-theme'
-                    }`}
-                  >
-                    {t.generator.aspectSingle}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TEMPORARILY_AVAILABLE_ASPECT_RATIOS.map((item) => (
+                  <button key={item.id} type="button" onClick={() => setSelectedSingleRatio(item.id)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${selectedSingleRatio === item.id ? 'border-accent bg-surface font-bold text-primary-theme ring-1 ring-accent' : 'border-subtle bg-surface/50 text-secondary-theme'}`}>
+                    <span className="block text-sm font-mono font-bold">{item.label} · {item.name}</span>
+                    <span className="block text-[11px] text-muted-theme mt-1">{item.res} · выбранный вертикальный формат</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setAspectMode('randomizer')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1 ${
-                      aspectMode === 'randomizer'
-                        ? 'accent-btn font-semibold shadow-xs'
-                        : 'text-secondary-theme hover:text-primary-theme'
-                    }`}
-                  >
-                    <Shuffle className="w-3 h-3" />
-                    <span>{t.generator.aspectRandomizer}</span>
-                  </button>
-                </div>
+                ))}
               </div>
-
-              {/* Mode A: Single Uniform Aspect Ratio Selector */}
-              {aspectMode === 'single' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {SUPPORTED_ASPECT_RATIOS.map((item) => {
-                    const isSelected = selectedSingleRatio === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedSingleRatio(item.id)}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-accent bg-surface font-bold text-primary-theme shadow-xs ring-1 ring-accent'
-                            : 'border-subtle bg-surface/50 text-secondary-theme hover:bg-surface'
-                        }`}
-                      >
-                        <span className="text-xs font-mono font-bold block">{item.label}</span>
-                        <span className="text-[10px] text-muted-theme block mt-0.5 font-mono">{item.res}</span>
-                        <span className="text-[10px] text-primary-theme font-medium block mt-1 truncate">
-                          {item.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Mode B: Multi-format Mix with Checkboxes */
-                <div className="space-y-2">
-                  <p className="text-[11px] text-secondary-theme">
-                    {t.generator.aspectMixPrompt}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {ALL_ASPECT_RATIOS.map((item) => {
-                      const isChecked = randomizerRatios[item.id];
-                      return (
-                        <label
-                          key={item.id}
-                          className={`p-2.5 rounded-xl border flex flex-col gap-1 cursor-pointer transition-colors ${
-                            isChecked
-                              ? 'bg-surface border-accent text-primary-theme font-medium shadow-xs'
-                              : 'bg-surface/40 border-subtle text-muted-theme hover:bg-surface'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono font-bold">{item.label}</span>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleRatioToggle(item.id)}
-                              className="w-3.5 h-3.5 rounded cursor-pointer"
-                              style={{ accentColor: 'var(--accent)' }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-muted-theme font-mono leading-tight">{item.res}</span>
-                          <span className="text-[10px] text-secondary-theme leading-tight truncate">{item.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Target Board with AI Recommendation Badge */}
